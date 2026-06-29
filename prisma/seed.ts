@@ -85,6 +85,45 @@ async function main(): Promise<void> {
     update: {},
   })
 
+  const waiterPassword = await bcrypt.hash('waiter123', 12)
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: tenant.id, email: 'waiter@demo.com' } },
+    create: {
+      tenantId: tenant.id,
+      name: 'Demo Waiter',
+      email: 'waiter@demo.com',
+      password: waiterPassword,
+      role: UserRole.WAITER,
+    },
+    update: {},
+  })
+
+  const kitchenPassword = await bcrypt.hash('kitchen123', 12)
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: tenant.id, email: 'kitchen@demo.com' } },
+    create: {
+      tenantId: tenant.id,
+      name: 'Chef Station',
+      email: 'kitchen@demo.com',
+      password: kitchenPassword,
+      role: UserRole.KITCHEN,
+    },
+    update: {},
+  })
+
+  const cashierPassword = await bcrypt.hash('cashier123', 12)
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: tenant.id, email: 'cashier@demo.com' } },
+    create: {
+      tenantId: tenant.id,
+      name: 'Demo Cashier',
+      email: 'cashier@demo.com',
+      password: cashierPassword,
+      role: UserRole.CASHIER,
+    },
+    update: {},
+  })
+
   await prisma.gSTConfig.upsert({
     where: { tenantId: tenant.id },
     create: {
@@ -103,88 +142,35 @@ async function main(): Promise<void> {
     update: {},
   })
 
-  const categories = await Promise.all([
-    prisma.category.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'Starter' } }, create: { tenantId: tenant.id, name: 'Starter', sortOrder: 1 }, update: {} }),
-    prisma.category.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'Main Course' } }, create: { tenantId: tenant.id, name: 'Main Course', sortOrder: 2 }, update: {} }),
-    prisma.category.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'Bread' } }, create: { tenantId: tenant.id, name: 'Bread', sortOrder: 3 }, update: {} }),
-    prisma.category.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'Rice' } }, create: { tenantId: tenant.id, name: 'Rice', sortOrder: 4 }, update: {} }),
-    prisma.category.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'Drinks' } }, create: { tenantId: tenant.id, name: 'Drinks', sortOrder: 5 }, update: {} }),
-    prisma.category.upsert({ where: { tenantId_name: { tenantId: tenant.id, name: 'Dessert' } }, create: { tenantId: tenant.id, name: 'Dessert', sortOrder: 6 }, update: {} }),
-  ])
+  // Seed minimal menu — only create if not already present (non-destructive)
+  const mainCat = await prisma.category.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Main Course' } },
+    create: { tenantId: tenant.id, name: 'Main Course', sortOrder: 1 },
+    update: {},
+  })
 
-  const [starter, mainCourse, bread, rice, drinks, dessert] = categories
-
-  const menuItems = [
-    { name: 'Paneer Tikka', cat: starter.id, price: 220, gst: 5, cost: 80, veg: true },
-    { name: 'Samosa (2 pcs)', cat: starter.id, price: 60, gst: 5, cost: 15, veg: true },
-    { name: 'Chicken 65', cat: starter.id, price: 200, gst: 5, cost: 80, veg: false },
-    { name: 'Veg Soup', cat: starter.id, price: 90, gst: 5, cost: 20, veg: true },
-    { name: 'Butter Chicken', cat: mainCourse.id, price: 280, gst: 5, cost: 120, veg: false },
-    { name: 'Dal Makhani', cat: mainCourse.id, price: 180, gst: 5, cost: 60, veg: true },
-    { name: 'Chicken Biryani', cat: mainCourse.id, price: 320, gst: 5, cost: 130, veg: false },
-    { name: 'Veg Biryani', cat: mainCourse.id, price: 240, gst: 5, cost: 80, veg: true },
-    { name: 'Paneer Butter Masala', cat: mainCourse.id, price: 230, gst: 5, cost: 90, veg: true },
-    { name: 'Butter Naan', cat: bread.id, price: 40, gst: 5, cost: 10, veg: true },
-    { name: 'Tandoori Roti', cat: bread.id, price: 30, gst: 5, cost: 8, veg: true },
-    { name: 'Garlic Naan', cat: bread.id, price: 50, gst: 5, cost: 12, veg: true },
-    { name: 'Jeera Rice', cat: rice.id, price: 120, gst: 5, cost: 30, veg: true },
-    { name: 'Plain Rice', cat: rice.id, price: 80, gst: 5, cost: 20, veg: true },
-    { name: 'Mango Lassi', cat: drinks.id, price: 80, gst: 12, cost: 25, veg: true },
-    { name: 'Cold Coffee', cat: drinks.id, price: 100, gst: 12, cost: 30, veg: true },
-    { name: 'Fresh Lime Soda', cat: drinks.id, price: 60, gst: 12, cost: 15, veg: true },
-    { name: 'Mineral Water', cat: drinks.id, price: 30, gst: 5, cost: 10, veg: true },
-    { name: 'Gulab Jamun', cat: dessert.id, price: 90, gst: 5, cost: 20, veg: true },
-    { name: 'Ice Cream', cat: dessert.id, price: 80, gst: 5, cost: 25, veg: true },
-  ]
-
-  for (const item of menuItems) {
-    await prisma.menuItem.upsert({
-      where: {
-        id: (await prisma.menuItem.findFirst({ where: { tenantId: tenant.id, name: item.name } }))?.id ?? 'nonexistent',
-      },
-      create: {
-        tenantId: tenant.id,
-        categoryId: item.cat,
-        name: item.name,
-        price: item.price,
-        gstRate: item.gst,
-        costPrice: item.cost,
-        isVeg: item.veg,
-      },
-      update: {},
+  const vegItem = await prisma.menuItem.findFirst({ where: { tenantId: tenant.id, name: 'Paneer Butter Masala' } })
+  if (!vegItem) {
+    await prisma.menuItem.create({
+      data: { tenantId: tenant.id, categoryId: mainCat.id, name: 'Paneer Butter Masala', price: 230, gstRate: 5, costPrice: 90, isVeg: true },
+    })
+  }
+  const nonVegItem = await prisma.menuItem.findFirst({ where: { tenantId: tenant.id, name: 'Chicken Biryani' } })
+  if (!nonVegItem) {
+    await prisma.menuItem.create({
+      data: { tenantId: tenant.id, categoryId: mainCat.id, name: 'Chicken Biryani', price: 320, gstRate: 5, costPrice: 130, isVeg: false },
     })
   }
 
-  await prisma.inventoryItem.upsert({
-    where: { id: (await prisma.inventoryItem.findFirst({ where: { tenantId: tenant.id, name: 'Chicken' } }))?.id ?? 'nonexistent' },
-    create: { tenantId: tenant.id, name: 'Chicken', unit: 'kg', quantity: 5, minStockLevel: 2, costPerUnit: 250, supplier: 'Fresh Farm' },
-    update: {},
-  })
-  await prisma.inventoryItem.upsert({
-    where: { id: (await prisma.inventoryItem.findFirst({ where: { tenantId: tenant.id, name: 'Paneer' } }))?.id ?? 'nonexistent' },
-    create: { tenantId: tenant.id, name: 'Paneer', unit: 'kg', quantity: 3, minStockLevel: 1, costPerUnit: 180, supplier: 'Dairy Fresh' },
-    update: {},
-  })
-  await prisma.inventoryItem.upsert({
-    where: { id: (await prisma.inventoryItem.findFirst({ where: { tenantId: tenant.id, name: 'Flour (Maida)' } }))?.id ?? 'nonexistent' },
-    create: { tenantId: tenant.id, name: 'Flour (Maida)', unit: 'kg', quantity: 10, minStockLevel: 3, costPerUnit: 40, supplier: 'Local Market' },
-    update: {},
-  })
-  await prisma.inventoryItem.upsert({
-    where: { id: (await prisma.inventoryItem.findFirst({ where: { tenantId: tenant.id, name: 'Basmati Rice' } }))?.id ?? 'nonexistent' },
-    create: { tenantId: tenant.id, name: 'Basmati Rice', unit: 'kg', quantity: 8, minStockLevel: 3, costPerUnit: 80, supplier: 'Local Market' },
-    update: {},
-  })
-  await prisma.inventoryItem.upsert({
-    where: { id: (await prisma.inventoryItem.findFirst({ where: { tenantId: tenant.id, name: 'Milk' } }))?.id ?? 'nonexistent' },
-    create: { tenantId: tenant.id, name: 'Milk', unit: 'litre', quantity: 6, minStockLevel: 2, costPerUnit: 60, supplier: 'Dairy Fresh' },
-    update: {},
-  })
-  await prisma.inventoryItem.upsert({
-    where: { id: (await prisma.inventoryItem.findFirst({ where: { tenantId: tenant.id, name: 'Tomatoes' } }))?.id ?? 'nonexistent' },
-    create: { tenantId: tenant.id, name: 'Tomatoes', unit: 'kg', quantity: 1.5, minStockLevel: 2, costPerUnit: 30, supplier: 'Veggie Mart' },
-    update: {},
-  })
+  // Inventory — upsert only
+  const invItems = [
+    { name: 'Chicken', unit: 'kg', quantity: 5, minStockLevel: 2, costPerUnit: 250, supplier: 'Fresh Farm' },
+    { name: 'Paneer', unit: 'kg', quantity: 3, minStockLevel: 1, costPerUnit: 180, supplier: 'Dairy Fresh' },
+  ]
+  for (const inv of invItems) {
+    const exists = await prisma.inventoryItem.findFirst({ where: { tenantId: tenant.id, name: inv.name } })
+    if (!exists) await prisma.inventoryItem.create({ data: { tenantId: tenant.id, ...inv } })
+  }
 
   // ── Second Demo Restaurant (Tenant 2) ─────────────────────────────────
   const tenant2 = await prisma.tenant.upsert({
@@ -231,50 +217,29 @@ async function main(): Promise<void> {
     update: {},
   })
 
-  const sg_categories = await Promise.all([
-    prisma.category.upsert({ where: { tenantId_name: { tenantId: tenant2.id, name: 'Appetizers' } }, create: { tenantId: tenant2.id, name: 'Appetizers', sortOrder: 1 }, update: {} }),
-    prisma.category.upsert({ where: { tenantId_name: { tenantId: tenant2.id, name: 'Mains' } }, create: { tenantId: tenant2.id, name: 'Mains', sortOrder: 2 }, update: {} }),
-    prisma.category.upsert({ where: { tenantId_name: { tenantId: tenant2.id, name: 'Beverages' } }, create: { tenantId: tenant2.id, name: 'Beverages', sortOrder: 3 }, update: {} }),
-  ])
+  const sg_mainCat = await prisma.category.upsert({
+    where: { tenantId_name: { tenantId: tenant2.id, name: 'Mains' } },
+    create: { tenantId: tenant2.id, name: 'Mains', sortOrder: 1 },
+    update: {},
+  })
 
-  const [sg_app, sg_main, sg_bev] = sg_categories
-
-  const sg_items = [
-    { name: 'Spring Rolls', cat: sg_app.id, price: 120, gst: 5, cost: 40, veg: true },
-    { name: 'Garlic Bread', cat: sg_app.id, price: 90, gst: 5, cost: 25, veg: true },
-    { name: 'Chicken Curry', cat: sg_main.id, price: 260, gst: 5, cost: 110, veg: false },
-    { name: 'Veg Thali', cat: sg_main.id, price: 180, gst: 5, cost: 70, veg: true },
-    { name: 'Masala Chai', cat: sg_bev.id, price: 30, gst: 5, cost: 8, veg: true },
-    { name: 'Buttermilk', cat: sg_bev.id, price: 40, gst: 5, cost: 10, veg: true },
-  ]
-
-  for (const item of sg_items) {
-    const existing = await prisma.menuItem.findFirst({ where: { tenantId: tenant2.id, name: item.name } })
-    if (!existing) {
-      await prisma.menuItem.create({
-        data: {
-          tenantId: tenant2.id,
-          categoryId: item.cat,
-          name: item.name,
-          price: item.price,
-          gstRate: item.gst,
-          costPrice: item.cost,
-          isVeg: item.veg,
-        },
-      })
-    }
+  const sg_veg = await prisma.menuItem.findFirst({ where: { tenantId: tenant2.id, name: 'Veg Thali' } })
+  if (!sg_veg) {
+    await prisma.menuItem.create({ data: { tenantId: tenant2.id, categoryId: sg_mainCat.id, name: 'Veg Thali', price: 180, gstRate: 5, costPrice: 70, isVeg: true } })
+  }
+  const sg_nonveg = await prisma.menuItem.findFirst({ where: { tenantId: tenant2.id, name: 'Chicken Curry' } })
+  if (!sg_nonveg) {
+    await prisma.menuItem.create({ data: { tenantId: tenant2.id, categoryId: sg_mainCat.id, name: 'Chicken Curry', price: 260, gstRate: 5, costPrice: 110, isVeg: false } })
   }
 
-  await prisma.inventoryItem.upsert({
-    where: { id: (await prisma.inventoryItem.findFirst({ where: { tenantId: tenant2.id, name: 'Vegetables Mix' } }))?.id ?? 'nonexistent' },
-    create: { tenantId: tenant2.id, name: 'Vegetables Mix', unit: 'kg', quantity: 4, minStockLevel: 1.5, costPerUnit: 50, supplier: 'Fresh Mart' },
-    update: {},
-  })
-  await prisma.inventoryItem.upsert({
-    where: { id: (await prisma.inventoryItem.findFirst({ where: { tenantId: tenant2.id, name: 'Chicken (Spice Garden)' } }))?.id ?? 'nonexistent' },
-    create: { tenantId: tenant2.id, name: 'Chicken (Spice Garden)', unit: 'kg', quantity: 0.8, minStockLevel: 2, costPerUnit: 260, supplier: 'Fresh Farm' },
-    update: {},
-  })
+  const sg_invItems = [
+    { name: 'Vegetables Mix', unit: 'kg', quantity: 4, minStockLevel: 1.5, costPerUnit: 50, supplier: 'Fresh Mart' },
+    { name: 'Chicken', unit: 'kg', quantity: 0.8, minStockLevel: 2, costPerUnit: 260, supplier: 'Fresh Farm' },
+  ]
+  for (const inv of sg_invItems) {
+    const exists = await prisma.inventoryItem.findFirst({ where: { tenantId: tenant2.id, name: inv.name } })
+    if (!exists) await prisma.inventoryItem.create({ data: { tenantId: tenant2.id, ...inv } })
+  }
 
   // ── Tables for Demo Restaurant ────────────────────────────────────────
   const tableNames = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'Counter 1', 'Counter 2']
@@ -338,10 +303,13 @@ async function main(): Promise<void> {
   }
 
   console.log('✅ Seed complete!')
-  console.log('   Admin login:           admin@dineflow.in   / admin1234')
-  console.log('   Demo Restaurant owner: owner@demo.com      / demo1234')
-  console.log('   Demo Restaurant mgr:   manager@demo.com    / manager123')
-  console.log('   Spice Garden owner:    owner@spicegarden.in / spice1234')
+  console.log('   Admin login:              admin@dineflow.in     / admin1234')
+  console.log('   Demo Restaurant owner:    owner@demo.com        / demo1234')
+  console.log('   Demo Restaurant manager:  manager@demo.com      / manager123')
+  console.log('   Demo Restaurant waiter:   waiter@demo.com       / waiter123')
+  console.log('   Demo Restaurant kitchen:  kitchen@demo.com      / kitchen123')
+  console.log('   Demo Restaurant cashier:  cashier@demo.com      / cashier123')
+  console.log('   Spice Garden owner:       owner@spicegarden.in  / spice1234')
 }
 
 main()

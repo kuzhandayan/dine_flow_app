@@ -6,6 +6,7 @@ export const ROLES = {
   MANAGER: 'MANAGER',
   WAITER: 'WAITER',
   KITCHEN: 'KITCHEN',
+  CASHIER: 'CASHIER',
 } as const
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -14,6 +15,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   MANAGER: 'Manager',
   WAITER: 'Waiter',
   KITCHEN: 'Kitchen Staff',
+  CASHIER: 'Cashier',
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
@@ -28,11 +30,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'menu', 'inventory', 'customers', 'reports', 'settings/team',
   ],
   WAITER: [
-    'dashboard', 'orders', 'new-order', 'check-order', 'customers',
+    'orders', 'new-order', 'kitchen', 'check-order', 'customers',
   ],
   KITCHEN: [
-    'dashboard', 'orders', 'check-order',
+    'kitchen', 'menu', 'inventory',
+  ],
+  CASHIER: [
+    'check-order',
   ],
 }
 
-export const INVITABLE_ROLES: UserRole[] = ['MANAGER', 'WAITER', 'KITCHEN']
+export const INVITABLE_ROLES: UserRole[] = ['MANAGER', 'WAITER', 'KITCHEN', 'CASHIER']

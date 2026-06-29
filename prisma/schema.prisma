@@ -113,6 +113,7 @@ enum UserRole {
   MANAGER
   WAITER
   KITCHEN
+  CASHIER
 }
 
 // ─────────────────────────────────────────────
@@ -318,6 +319,7 @@ model Payment {
 model GSTConfig {
   id              String  @id @default(cuid())
   tenantId        String  @unique
+  gstEnabled      Boolean @default(true)
   defaultGSTRate  Float   @default(5)
   isGSTRegistered Boolean @default(false)
   gstin           String?

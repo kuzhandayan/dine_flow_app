@@ -9,7 +9,7 @@ import { X } from 'lucide-react'
 import {
   LayoutDashboard, ShoppingCart, ClipboardList, Search,
   UtensilsCrossed, Package, Users, BarChart3,
-  Settings, Receipt, LogOut, ChefHat, Bell, MessageCircle, LayoutGrid,
+  Settings, Receipt, LogOut, ChefHat, Bell, MessageCircle, LayoutGrid, Flame,
 } from 'lucide-react'
 import { useAnnouncementUnreadCount } from '@/hooks/useAnnouncements'
 import { useChatUnreadCounts } from '@/hooks/useChat'
@@ -27,44 +27,51 @@ interface NavGroup {
   items: NavItem[]
 }
 
+const MGMT: UserRole[] = ['OWNER', 'MANAGER', 'SUPER_ADMIN']
+const MGMT_KITCHEN: UserRole[] = ['OWNER', 'MANAGER', 'SUPER_ADMIN', 'KITCHEN']
+const MGMT_ONLY: UserRole[] = ['OWNER', 'MANAGER', 'SUPER_ADMIN']
+const WAITER_UP: UserRole[] = ['OWNER', 'MANAGER', 'SUPER_ADMIN', 'WAITER']
+const NO_CASHIER: UserRole[] = ['OWNER', 'MANAGER', 'SUPER_ADMIN', 'WAITER', 'KITCHEN']
+
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Operations',
     items: [
-      { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-      { label: 'New Order', href: '/new-order', icon: <ShoppingCart className="w-4 h-4" /> },
-      { label: 'Orders', href: '/orders', icon: <ClipboardList className="w-4 h-4" /> },
+      { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="w-4 h-4" />, roles: MGMT_ONLY },
+      { label: 'New Order', href: '/new-order', icon: <ShoppingCart className="w-4 h-4" />, roles: WAITER_UP },
+      { label: 'Orders', href: '/orders', icon: <ClipboardList className="w-4 h-4" />, roles: WAITER_UP },
+      { label: 'Kitchen View', href: '/kitchen', icon: <Flame className="w-4 h-4" />, roles: NO_CASHIER },
       { label: 'Check Order', href: '/check-order', icon: <Search className="w-4 h-4" /> },
     ],
   },
   {
     label: 'Management',
     items: [
-      { label: 'Menu', href: '/menu', icon: <UtensilsCrossed className="w-4 h-4" />, roles: ['OWNER', 'MANAGER', 'SUPER_ADMIN'] },
-      { label: 'Inventory', href: '/inventory', icon: <Package className="w-4 h-4" />, roles: ['OWNER', 'MANAGER', 'SUPER_ADMIN'] },
-      { label: 'Customers', href: '/customers', icon: <Users className="w-4 h-4" /> },
+      { label: 'Menu', href: '/menu', icon: <UtensilsCrossed className="w-4 h-4" />, roles: MGMT_KITCHEN },
+      { label: 'Inventory', href: '/inventory', icon: <Package className="w-4 h-4" />, roles: MGMT_KITCHEN },
+      { label: 'Customers', href: '/customers', icon: <Users className="w-4 h-4" />, roles: WAITER_UP },
     ],
   },
   {
     label: 'Insights',
     items: [
-      { label: 'Reports', href: '/reports', icon: <BarChart3 className="w-4 h-4" />, roles: ['OWNER', 'MANAGER', 'SUPER_ADMIN'] },
+      { label: 'Reports', href: '/reports', icon: <BarChart3 className="w-4 h-4" />, roles: MGMT },
     ],
   },
   {
     label: 'Updates',
     items: [
-      { label: 'Announcements', href: '/announcements', icon: <Bell className="w-4 h-4" />, badgeKey: 'announcements' },
-      { label: 'Chat', href: '/chat', icon: <MessageCircle className="w-4 h-4" />, badgeKey: 'chat' },
+      { label: 'Announcements', href: '/announcements', icon: <Bell className="w-4 h-4" />, roles: MGMT, badgeKey: 'announcements' },
+      { label: 'Chat', href: '/chat', icon: <MessageCircle className="w-4 h-4" />, roles: MGMT, badgeKey: 'chat' },
     ],
   },
   {
     label: 'Settings',
     items: [
-      { label: 'Tables', href: '/settings/tables', icon: <LayoutGrid className="w-4 h-4" />, roles: ['OWNER', 'MANAGER', 'SUPER_ADMIN'] },
+      { label: 'Tables', href: '/settings/tables', icon: <LayoutGrid className="w-4 h-4" />, roles: MGMT },
       { label: 'GST Config', href: '/settings/gst', icon: <Receipt className="w-4 h-4" />, roles: ['OWNER', 'SUPER_ADMIN'] },
-      { label: 'Team', href: '/settings/team', icon: <ChefHat className="w-4 h-4" />, roles: ['OWNER', 'MANAGER', 'SUPER_ADMIN'] },
-      { label: 'General', href: '/settings', icon: <Settings className="w-4 h-4" /> },
+      { label: 'Team', href: '/settings/team', icon: <ChefHat className="w-4 h-4" />, roles: MGMT },
+      { label: 'General', href: '/settings', icon: <Settings className="w-4 h-4" />, roles: MGMT },
     ],
   },
 ]
@@ -89,7 +96,8 @@ export function Sidebar({ tenantName, userRole, isOpen = false, onClose }: Sideb
   }
 
   function isActive(href: string): boolean {
-    if (href === '/dashboard') return pathname === '/dashboard'
+    // Exact match for leaf routes that are also path prefixes of sub-routes
+    if (href === '/dashboard' || href === '/settings') return pathname === href
     return pathname.startsWith(href)
   }
 
