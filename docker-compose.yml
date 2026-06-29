@@ -1,0 +1,28 @@
+name: dineflow
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: dineflow-dev
+    ports:
+      - "3001:3001"
+    volumes:
+      # Mount source for hot reload
+      - .:/app
+      # Preserve container's node_modules (don't overwrite with host)
+      - /app/node_modules
+      - /app/.next
+    env_file:
+      # Create .env.local from .env.example and fill in Supabase credentials
+      - .env.local
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

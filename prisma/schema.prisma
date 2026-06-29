@@ -1,0 +1,526 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// MULTI-TENANT CORE
+// ─────────────────────────────────────────────
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  gstin       String?
+  gstName     String?
+  address     String?
+  phone       String?
+  email       String?
+  logo        String?
+  currency    String   @default("INR")
+  timezone    String   @default("Asia/Kolkata")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users                User[]
+  customers            Customer[]
+  orders               Order[]
+  menuItems            MenuItem[]
+  categories           Category[]
+  inventory            InventoryItem[]
+  invites              Invite[]
+  gstConfig            GSTConfig?
+  subscription         Subscription?
+  announcementTargets  AnnouncementTenant[]
+  announcementReads    AnnouncementRead[]
+  communityMessages    CommunityMessage[]
+  directMessages       DirectMessage[]
+  tables               RestaurantTable[]
+
+  isSuspended     Boolean   @default(false)
+  suspendedAt     DateTime?
+  suspendedReason String?
+
+  @@map("tenants")
+}
+
+// ─────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  tenantId      String
+  name          String
+  email         String
+  emailVerified DateTime?
+  password      String
+  role          UserRole  @default(WAITER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant             Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions           Session[]
+  orders             Order[]  @relation("OrderCreatedBy")
+  mustChangePassword Boolean  @default(false)
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Invite {
+  id        String   @id @default(cuid())
+  tenantId  String
+  email     String
+  role      UserRole @default(WAITER)
+  token     String   @unique @default(cuid())
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("invites")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  OWNER
+  MANAGER
+  WAITER
+  KITCHEN
+}
+
+// ─────────────────────────────────────────────
+// CUSTOMERS
+// ─────────────────────────────────────────────
+
+model Customer {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  phone       String
+  email       String?
+  address     String?
+  notes       String?
+  totalOrders Int       @default(0)
+  totalSpent  Float     @default(0)
+  lastVisitAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@unique([tenantId, phone])
+  @@index([tenantId])
+  @@map("customers")
+}
+
+// ─────────────────────────────────────────────
+// MENU
+// ─────────────────────────────────────────────
+
+model Category {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menuItems MenuItem[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("categories")
+}
+
+model MenuItem {
+  id              String  @id @default(cuid())
+  tenantId        String
+  categoryId      String?
+  name            String
+  description     String?
+  price           Float
+  costPrice       Float?
+  gstRate         Float   @default(5)
+  isAvailable     Boolean @default(true)
+  isVeg           Boolean @default(true)
+  sortOrder       Int     @default(0)
+  inventoryItemId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  orderItems    OrderItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, categoryId])
+  @@map("menu_items")
+}
+
+// ─────────────────────────────────────────────
+// INVENTORY
+// ─────────────────────────────────────────────
+
+model InventoryItem {
+  id              String    @id @default(cuid())
+  tenantId        String
+  name            String
+  unit            String
+  quantity        Float     @default(0)
+  minStockLevel   Float     @default(0)
+  costPerUnit     Float     @default(0)
+  supplier        String?
+  lastRestockedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menuItems   MenuItem[]
+  restockLogs RestockLog[]
+
+  @@index([tenantId])
+  @@map("inventory_items")
+}
+
+model RestockLog {
+  id              String   @id @default(cuid())
+  inventoryItemId String
+  quantityAdded   Float
+  costPerUnit     Float?
+  supplier        String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@map("restock_logs")
+}
+
+// ─────────────────────────────────────────────
+// ORDERS
+// ─────────────────────────────────────────────
+
+model Order {
+  id          String      @id @default(cuid())
+  tenantId    String
+  customerId  String
+  createdById String?
+  orderNumber String
+  type        OrderType   @default(DINE_IN)
+  tableNumber String?
+  status      OrderStatus @default(PENDING)
+  notes       String?
+
+  subtotal   Float
+  totalGST   Float
+  totalCGST  Float
+  totalSGST  Float
+  grandTotal Float
+
+  paymentStatus PaymentStatus  @default(UNPAID)
+  paymentMethod PaymentMethod?
+  paidAmount    Float          @default(0)
+  paidAt        DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer  Customer  @relation(fields: [customerId], references: [id])
+  createdBy User?     @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  items     OrderItem[]
+  payments  Payment[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([customerId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String @id @default(cuid())
+  orderId    String
+  menuItemId String
+  name       String
+  price      Float
+  gstRate    Float
+  quantity   Int
+  subtotal   Float
+  gstAmount  Float
+  cgst       Float
+  sgst       Float
+  total      Float
+  notes      String?
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ─────────────────────────────────────────────
+// PAYMENTS
+// ─────────────────────────────────────────────
+
+model Payment {
+  id        String        @id @default(cuid())
+  orderId   String
+  amount    Float
+  method    PaymentMethod
+  status    String        @default("success")
+  reference String?
+  createdAt DateTime      @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────
+// GST CONFIGURATION
+// ─────────────────────────────────────────────
+
+model GSTConfig {
+  id              String  @id @default(cuid())
+  tenantId        String  @unique
+  defaultGSTRate  Float   @default(5)
+  isGSTRegistered Boolean @default(false)
+  gstin           String?
+  gstBusinessName String?
+  gstAddress      String?
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("gst_configs")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum OrderType {
+  DINE_IN
+  PARCEL
+  DELIVERY
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PROGRESS
+  READY
+  SERVED
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+}
+
+// ─────────────────────────────────────────────
+// SUBSCRIPTIONS
+// ─────────────────────────────────────────────
+
+model Subscription {
+  id             String             @id @default(cuid())
+  tenantId       String             @unique
+  type           SubscriptionType   @default(LIFETIME)
+  status         SubscriptionStatus @default(ACTIVE)
+  startDate      DateTime           @default(now())
+  endDate        DateTime?
+  amount         Float?
+  currency       String             @default("INR")
+  notes          String?
+  lastPaymentAt  DateTime?
+  lastPaymentAmt Float?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments SubscriptionPayment[]
+
+  @@map("subscriptions")
+}
+
+model SubscriptionPayment {
+  id              String    @id @default(cuid())
+  subscriptionId  String
+  amount          Float
+  currency        String    @default("INR")
+  method          String
+  reference       String?
+  paidAt          DateTime  @default(now())
+  extendedUntil   DateTime?
+  notes           String?
+  recordedBy      String
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@map("subscription_payments")
+}
+
+enum SubscriptionType {
+  LIFETIME
+  DURATION
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  CLOSED
+}
+
+// ─────────────────────────────────────────────
+// TABLES
+// ─────────────────────────────────────────────
+
+model RestaurantTable {
+  id        String  @id @default(cuid())
+  tenantId  String
+  name      String
+  capacity  Int     @default(4)
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("restaurant_tables")
+}
+
+// ─────────────────────────────────────────────
+// ANNOUNCEMENTS
+// ─────────────────────────────────────────────
+
+model Announcement {
+  id          String             @id @default(cuid())
+  title       String
+  content     String
+  targetType  AnnouncementTarget @default(ALL)
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  targets AnnouncementTenant[]
+  reads   AnnouncementRead[]
+
+  @@index([createdAt])
+  @@map("announcements")
+}
+
+model AnnouncementTenant {
+  id             String   @id @default(cuid())
+  announcementId String
+  tenantId       String
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, tenantId])
+  @@map("announcement_tenants")
+}
+
+model AnnouncementRead {
+  id             String   @id @default(cuid())
+  announcementId String
+  tenantId       String
+  readAt         DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, tenantId])
+  @@map("announcement_reads")
+}
+
+enum AnnouncementTarget {
+  ALL
+  SELECTED
+}
+
+// ─────────────────────────────────────────────
+// COMMUNITY CHAT
+// ─────────────────────────────────────────────
+
+model CommunityMessage {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  senderName  String
+  isAdmin     Boolean  @default(false)
+  content     String
+  createdAt   DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("community_messages")
+}
+
+// ─────────────────────────────────────────────
+// DIRECT MESSAGES (Restaurant ↔ Admin)
+// ─────────────────────────────────────────────
+
+model DirectMessage {
+  id         String   @id @default(cuid())
+  tenantId   String
+  content    String
+  fromAdmin  Boolean  @default(false)
+  senderName String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, isRead])
+  @@map("direct_messages")
+}

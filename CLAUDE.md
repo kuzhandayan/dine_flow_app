@@ -9,9 +9,95 @@
 
 ## What Is DineFlow?
 
-DineFlow is a **multi-tenant Restaurant POS and Management SaaS** built with Next.js 14.
+DineFlow is a **multi-tenant Restaurant POS and Management SaaS** built with **Next.js 15 (App Router, React 19)**.
 Each restaurant that signs up gets their own isolated workspace (tenant).
 One codebase serves unlimited restaurants — data is always isolated by `tenantId`.
+
+---
+
+## Package Versions — Always Use Latest
+
+> **RULE: Always install the latest stable version of every package. Never pin to old versions.**
+
+| Package | Latest (as of build) | Notes |
+|---|---|---|
+| next | ^15.x | App Router, React 19 |
+| react / react-dom | ^19.x | Latest stable |
+| typescript | ^5.x | Strict mode |
+| tailwindcss | ^4.x | CSS-based config |
+| @tailwindcss/postcss | ^4.x | Required for v4 |
+| prisma / @prisma/client | ^6.x | Latest ORM |
+| next-auth | ^5.0.0-beta (latest beta) | Auth.js v5 |
+| @auth/prisma-adapter | ^2.x | |
+| zod | ^3.x | Latest |
+| zustand | ^5.x | |
+| @tanstack/react-query | ^5.x | |
+| lucide-react | latest | |
+| date-fns | ^4.x | |
+| resend | latest | |
+
+**Install command:** `npm install <package>@latest` — always latest, no version pinning.
+
+---
+
+## Token & Secret Management
+
+> This section governs ALL secret/token handling across the app. Never deviate from it.
+
+### JWT Session Tokens (NextAuth)
+- Stored in **httpOnly cookie** — never accessible from JavaScript
+- Contains: `userId`, `tenantId`, `role`, `name`, `email`, `tenantSlug`
+- Lifetime: 30 days (`maxAge: 30 * 24 * 60 * 60`)
+- Secret: `NEXTAUTH_SECRET` — generate with `openssl rand -base64 32`
+- Rotate by updating `NEXTAUTH_SECRET` env var (all active sessions immediately invalidated)
+
+### Required Environment Variables (all must be set before app starts)
+```bash
+DATABASE_URL         # Supabase transaction pooler URL (pgBouncer)
+DIRECT_URL           # Supabase direct connection URL (for migrations only)
+NEXTAUTH_URL         # App URL e.g. http://localhost:3000
+NEXTAUTH_SECRET      # openssl rand -base64 32
+RESEND_API_KEY       # From resend.com dashboard
+RESEND_FROM_EMAIL    # Verified sender email
+NEXT_PUBLIC_APP_URL  # Same as NEXTAUTH_URL
+NEXT_PUBLIC_APP_NAME # "DineFlow"
+```
+
+### Docker Build — Secret Injection Pattern
+```bash
+# Development (with .env.local mounted)
+docker compose up
+
+# Production build (secrets injected at runtime, NOT build time)
+docker build -t dineflow .
+docker run -p 3000:3000 \
+  -e DATABASE_URL="..." \
+  -e DIRECT_URL="..." \
+  -e NEXTAUTH_SECRET="..." \
+  -e NEXTAUTH_URL="https://yourdomain.com" \
+  -e RESEND_API_KEY="..." \
+  -e RESEND_FROM_EMAIL="..." \
+  -e NEXT_PUBLIC_APP_URL="https://yourdomain.com" \
+  -e NEXT_PUBLIC_APP_NAME="DineFlow" \
+  dineflow
+```
+
+### Security Rules
+- **Never** bake secrets into Docker image layers (no `ENV SECRET=value` in Dockerfile)
+- **Never** commit `.env.local` — it's in `.gitignore`
+- **Always** use `--env-file .env.local` or `-e KEY=value` at `docker run` time
+- Prisma `DATABASE_URL` uses pgBouncer (transaction pooler) for app queries
+- Prisma `DIRECT_URL` uses direct connection — only used during `prisma migrate`
+- API keys (Resend) rotate in provider dashboard then update env — zero code changes
+
+### Token Validation in Every API Route
+```typescript
+// REQUIRED pattern — never skip
+const session = await requireAuth()  // throws AuthError if no valid session
+// session.tenantId is guaranteed safe to use
+```
+
+---
 
 ---
 
