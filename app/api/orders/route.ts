@@ -24,7 +24,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     const status = url.searchParams.get('status')
     const search = url.searchParams.get('search')?.trim()
     const page = parseInt(url.searchParams.get('page') ?? '1')
-    const limit = 20
+    const limit = parseInt(url.searchParams.get('limit') ?? '20')
 
     const orders = await prisma.order.findMany({
       where: {
