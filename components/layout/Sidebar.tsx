@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { signOut } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@prisma/client'
 import { X } from 'lucide-react'
+import { CUSTOMIZABLE_ROLES } from '@/constants/ROLES'
 import {
   LayoutDashboard, ShoppingCart, ClipboardList, Search,
   UtensilsCrossed, Package, Users, BarChart3,
@@ -86,8 +87,13 @@ interface SidebarProps {
 export function Sidebar({ tenantName, userRole, isOpen = false, onClose }: SidebarProps): React.JSX.Element {
   const pathname = usePathname()
   const router = useRouter()
+  const { data: session } = useSession()
   const { data: announcementUnread } = useAnnouncementUnreadCount()
   const { data: chatUnread } = useChatUnreadCounts()
+
+  // Permissions from session — only meaningful for staff roles
+  const userPermissions: string[] = session?.user?.permissions ?? []
+  const isStaffRole = CUSTOMIZABLE_ROLES.includes(userRole)
 
   function getBadgeCount(key?: 'announcements' | 'chat'): number {
     if (key === 'announcements') return announcementUnread?.count ?? 0
@@ -96,12 +102,16 @@ export function Sidebar({ tenantName, userRole, isOpen = false, onClose }: Sideb
   }
 
   function isActive(href: string): boolean {
-    // Exact match for leaf routes that are also path prefixes of sub-routes
     if (href === '/dashboard' || href === '/settings') return pathname === href
     return pathname.startsWith(href)
   }
 
-  function canAccess(roles?: UserRole[]): boolean {
+  function canAccess(roles?: UserRole[], href?: string): boolean {
+    // Staff roles: check permissions array instead of role list
+    if (isStaffRole && href) {
+      const key = href.replace(/^\//, '').split('/')[0]
+      return userPermissions.includes(key)
+    }
     if (!roles) return true
     return roles.includes(userRole)
   }
@@ -144,7 +154,7 @@ export function Sidebar({ tenantName, userRole, isOpen = false, onClose }: Sideb
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         {NAV_GROUPS.map((group) => {
-          const visibleItems = group.items.filter((item) => canAccess(item.roles))
+          const visibleItems = group.items.filter((item) => canAccess(item.roles, item.href))
           if (visibleItems.length === 0) return null
 
           return (

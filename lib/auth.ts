@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { loginSchema } from '@/lib/validations/auth'
 import type { UserRole } from '@prisma/client'
+import { DEFAULT_PERMISSIONS } from '@/constants/ROLES'
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
@@ -27,7 +28,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: email.toLowerCase(), isActive: true },
           include: {
             tenant: {
-              select: { id: true, name: true, slug: true, isActive: true, isSuspended: true },
+              select: { id: true, name: true, slug: true, isActive: true, isSuspended: true, currency: true },
             },
           },
         })
@@ -37,6 +38,12 @@ export const authOptions: NextAuthOptions = {
         const passwordMatch = await bcrypt.compare(password, user.password)
         if (!passwordMatch) return null
 
+        // Use stored permissions, fall back to role defaults for staff
+        const permissions: string[] =
+          user.permissions.length > 0
+            ? user.permissions
+            : (DEFAULT_PERMISSIONS[user.role] ?? [])
+
         return {
           id: user.id,
           email: user.email,
@@ -45,12 +52,14 @@ export const authOptions: NextAuthOptions = {
           tenantId: user.tenantId,
           tenantName: user.tenant.name,
           tenantSlug: user.tenant.slug,
+          currency: user.tenant.currency,
+          permissions,
         }
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         const u = user as unknown as Record<string, unknown>
         token.id = u['id'] as string
@@ -58,7 +67,34 @@ export const authOptions: NextAuthOptions = {
         token.tenantId = u['tenantId'] as string
         token.tenantName = u['tenantName'] as string
         token.tenantSlug = u['tenantSlug'] as string
+        token.currency = u['currency'] as string
+        token.permissions = u['permissions'] as string[]
       }
+
+      // Called when client triggers session.update() — re-fetch fresh tenant + user data
+      if (trigger === 'update' && token.tenantId) {
+        const [tenant, freshUser] = await Promise.all([
+          prisma.tenant.findUnique({
+            where: { id: token.tenantId as string },
+            select: { name: true, currency: true, isActive: true, isSuspended: true },
+          }),
+          prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { permissions: true, role: true, isActive: true },
+          }),
+        ])
+        if (tenant && tenant.isActive && !tenant.isSuspended) {
+          token.tenantName = tenant.name
+          token.currency = tenant.currency
+        }
+        if (freshUser && freshUser.isActive) {
+          token.permissions =
+            freshUser.permissions.length > 0
+              ? freshUser.permissions
+              : (DEFAULT_PERMISSIONS[freshUser.role] ?? [])
+        }
+      }
+
       return token
     },
     async session({ session, token }) {
@@ -68,6 +104,8 @@ export const authOptions: NextAuthOptions = {
         session.user.tenantId = token.tenantId as string
         session.user.tenantName = token.tenantName as string
         session.user.tenantSlug = token.tenantSlug as string
+        session.user.currency = token.currency as string
+        session.user.permissions = (token.permissions as string[]) ?? []
       }
       return session
     },

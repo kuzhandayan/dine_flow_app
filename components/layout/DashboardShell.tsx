@@ -6,6 +6,7 @@ import type { UserRole } from '@prisma/client'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
 import { MobileNav } from '@/components/layout/MobileNav'
+import { SessionSyncProvider } from '@/components/providers/SessionSyncProvider'
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -38,6 +39,7 @@ export function DashboardShell({
   }, [])
 
   return (
+    <SessionSyncProvider>
     <div className="flex min-h-screen bg-[rgb(var(--df-bg))]">
       {/* Mobile overlay backdrop */}
       {sidebarOpen && (
@@ -70,5 +72,6 @@ export function DashboardShell({
       {/* Bottom nav — mobile only */}
       <MobileNav />
     </div>
+    </SessionSyncProvider>
   )
 }

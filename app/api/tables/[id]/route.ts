@@ -39,7 +39,7 @@ export async function DELETE(
   try {
     const session = await requireRole(['OWNER', 'MANAGER', 'SUPER_ADMIN'])
     const { id } = await params
-    await prisma.restaurantTable.deleteMany({ where: { id, tenantId: session.tenantId } })
+    await prisma.restaurantTable.updateMany({ where: { id, tenantId: session.tenantId }, data: { isActive: false } })
     return NextResponse.json({ success: true })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Error' }, { status: 400 })

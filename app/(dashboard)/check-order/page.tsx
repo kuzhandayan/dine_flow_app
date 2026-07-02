@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { useCurrency } from '@/hooks/useCurrency'
 import { Search, Loader2, Receipt, UtensilsCrossed, Package } from 'lucide-react'
 
 interface OrderItem { name: string; quantity: number; price: number; gstRate: number; total: number; cgst: number; sgst: number }
@@ -34,6 +35,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 }
 
 export default function CheckOrderPage(): React.JSX.Element {
+  const { format: fmt } = useCurrency()
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [order, setOrder] = useState<Order | null>(null)
@@ -141,7 +143,7 @@ export default function CheckOrderPage(): React.JSX.Element {
                       <span className="text-[13px] text-[rgb(var(--df-text))]">{item.name}</span>
                       <span className="text-[12px] text-[rgb(var(--df-text-3))] ml-2">× {item.quantity}</span>
                     </div>
-                    <span className="text-[13px] font-medium">₹{item.total.toFixed(2)}</span>
+                    <span className="text-[13px] font-medium">{fmt(item.total)}</span>
                   </div>
                 ))}
               </div>
@@ -152,19 +154,19 @@ export default function CheckOrderPage(): React.JSX.Element {
               <div className="space-y-1.5 text-[13px]">
                 <div className="flex justify-between text-[rgb(var(--df-text-2))]">
                   <span>Subtotal</span>
-                  <span>₹{order.subtotal.toFixed(2)}</span>
+                  <span>{fmt(order.subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-[rgb(var(--df-text-2))]">
                   <span>CGST</span>
-                  <span>₹{order.totalCGST.toFixed(2)}</span>
+                  <span>{fmt(order.totalCGST)}</span>
                 </div>
                 <div className="flex justify-between text-[rgb(var(--df-text-2))]">
                   <span>SGST</span>
-                  <span>₹{order.totalSGST.toFixed(2)}</span>
+                  <span>{fmt(order.totalSGST)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-[15px] pt-2 border-t border-[rgb(var(--df-border))]">
                   <span>Grand Total</span>
-                  <span className="text-[rgb(var(--df-accent))]">₹{order.grandTotal.toFixed(2)}</span>
+                  <span className="text-[rgb(var(--df-accent))]">{fmt(order.grandTotal)}</span>
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-3">

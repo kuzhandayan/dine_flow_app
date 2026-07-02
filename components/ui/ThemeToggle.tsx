@@ -16,7 +16,7 @@ export function ThemeToggle({ className }: ThemeToggleProps): React.JSX.Element 
       onClick={toggle}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       className={cn(
-        'relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--df-accent))]',
+        'relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--df-accent))] shrink-0',
         isDark
           ? 'bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))]'
           : 'bg-[rgb(var(--df-accent))]',
@@ -26,24 +26,24 @@ export function ThemeToggle({ className }: ThemeToggleProps): React.JSX.Element 
       {/* Track icons */}
       <Moon
         className={cn(
-          'absolute left-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 transition-opacity duration-200',
+          'absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 transition-opacity duration-200',
           isDark ? 'opacity-100 text-[rgb(var(--df-accent))]' : 'opacity-0'
         )}
       />
       <Sun
         className={cn(
-          'absolute right-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 transition-opacity duration-200',
+          'absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 transition-opacity duration-200',
           isDark ? 'opacity-0' : 'opacity-100 text-white'
         )}
       />
 
-      {/* Thumb */}
+      {/* Thumb — w-5 h-5, gap of 2px each side */}
       <span
         className={cn(
-          'absolute top-0.5 w-6 h-6 rounded-full shadow-md transition-transform duration-300',
+          'absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-sm transition-transform duration-300',
           isDark
-            ? 'translate-x-0.5 bg-[rgb(var(--df-border))]'
-            : 'translate-x-[calc(100%-0.25rem)] bg-white'
+            ? 'translate-x-0 bg-[rgb(var(--df-text-3))]'
+            : 'translate-x-6 bg-white'
         )}
       />
     </button>

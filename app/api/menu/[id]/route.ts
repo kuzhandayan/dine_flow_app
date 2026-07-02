@@ -46,8 +46,9 @@ export async function DELETE(
     const session = await requireRole(['OWNER', 'MANAGER'] as UserRole[])
     const { id } = await params
 
-    await prisma.menuItem.delete({
+    await prisma.menuItem.updateMany({
       where: { id, tenantId: session.tenantId },
+      data: { isActive: false },
     })
 
     return NextResponse.json({ success: true })

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Plus, Loader2, AlertTriangle, X, Pencil, Trash2, Package } from 'lucide-react'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
+import { useToast } from '@/components/providers/ToastProvider'
 
 interface InventoryItem {
   id: string
@@ -20,6 +22,8 @@ const UNITS = ['kg', 'g', 'L', 'ml', 'pcs', 'dozen', 'packet', 'bottle', 'box']
 const emptyForm = { name: '', unit: 'kg', quantity: '0', minStockLevel: '0', costPerUnit: '0', supplier: '' }
 
 export default function InventoryPage(): React.JSX.Element {
+  const { confirm } = useConfirm()
+  const toast = useToast()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -82,6 +86,7 @@ export default function InventoryPage(): React.JSX.Element {
       })
       const data = (await res.json()) as { item?: InventoryItem; error?: string }
       if (!res.ok) { setError(data.error ?? 'Failed'); return }
+      toast.success(editId ? 'Item updated' : 'Item added', form.name)
       setShowForm(false)
       void fetchItems()
     } finally {
@@ -89,11 +94,13 @@ export default function InventoryPage(): React.JSX.Element {
     }
   }
 
-  async function deleteItem(id: string): Promise<void> {
-    if (!confirm('Delete this inventory item?')) return
+  async function deleteItem(id: string, name: string): Promise<void> {
+    const ok = await confirm({ title: 'Delete Inventory Item', message: `"${name}" will be permanently removed.`, confirmLabel: 'Delete', variant: 'danger' })
+    if (!ok) return
     setDeletingId(id)
     try {
       await fetch(`/api/inventory/${id}`, { method: 'DELETE' })
+      toast.success('Item deleted', name)
       setItems((prev) => prev.filter((i) => i.id !== id))
     } finally {
       setDeletingId(null)
@@ -203,7 +210,7 @@ export default function InventoryPage(): React.JSX.Element {
                   <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg hover:bg-[rgb(var(--df-surface-2))] text-[rgb(var(--df-text-2))] hover:text-[rgb(var(--df-text))] transition-colors">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => void deleteItem(item.id)} disabled={deletingId === item.id}
+                  <button onClick={() => void deleteItem(item.id, item.name)} disabled={deletingId === item.id}
                     className="p-1.5 rounded-lg hover:bg-red-400/10 text-[rgb(var(--df-text-3))] hover:text-red-400 transition-colors">
                     {deletingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                   </button>

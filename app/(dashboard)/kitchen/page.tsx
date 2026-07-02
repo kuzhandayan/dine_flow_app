@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { UtensilsCrossed, Package, Clock, RefreshCw, Loader2, ChevronRight, Flame } from 'lucide-react'
+import {
+  UtensilsCrossed, Package, Clock, RefreshCw, Loader2,
+  ChevronRight, Flame, CheckCircle2, X, ChefHat,
+} from 'lucide-react'
 
 interface OrderItem { name: string; quantity: number; notes: string | null }
 
@@ -9,15 +12,17 @@ interface Order {
   id: string
   orderNumber: string
   type: 'DINE_IN' | 'PARCEL' | 'DELIVERY'
-  status: 'PENDING' | 'IN_PROGRESS' | 'READY'
+  status: 'PENDING' | 'IN_PROGRESS' | 'READY' | 'SERVED' | 'COMPLETED' | 'CANCELLED'
   tableNumber: string | null
   notes: string | null
+  grandTotal: number
   createdAt: string
+  updatedAt: string
   customer: { name: string }
   items: OrderItem[]
 }
 
-const COLUMNS: { status: Order['status']; label: string; accent: string; cardBorder: string; badge: string }[] = [
+const ACTIVE_COLUMNS: { status: 'PENDING' | 'IN_PROGRESS' | 'READY'; label: string; accent: string; cardBorder: string; badge: string }[] = [
   {
     status: 'PENDING',
     label: 'New Orders',
@@ -60,6 +65,10 @@ function elapsed(createdAt: string): string {
   return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`
 }
 
+function timeOnly(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+}
+
 function ElapsedTimer({ createdAt }: { createdAt: string }): React.JSX.Element {
   const [, tick] = useState(0)
   useEffect(() => {
@@ -67,8 +76,8 @@ function ElapsedTimer({ createdAt }: { createdAt: string }): React.JSX.Element {
     return () => clearInterval(id)
   }, [])
   const diff = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000)
-  const urgent = diff > 600 // > 10 min
-  const warning = diff > 300 // > 5 min
+  const urgent = diff > 600
+  const warning = diff > 300
   return (
     <span className={`text-[11px] font-mono font-medium ${urgent ? 'text-red-400' : warning ? 'text-yellow-400' : 'text-[rgb(var(--df-text-3))]'}`}>
       {elapsed(createdAt)}
@@ -76,34 +85,149 @@ function ElapsedTimer({ createdAt }: { createdAt: string }): React.JSX.Element {
   )
 }
 
+// ── Completed orders modal ────────────────────────────────────────────────────
+
+function CompletedModal({
+  orders,
+  onClose,
+}: {
+  orders: Order[]
+  onClose: () => void
+}): React.JSX.Element {
+  const totalItems = orders.reduce((s, o) => s + o.items.reduce((si, i) => si + i.quantity, 0), 0)
+  const totalRevenue = orders.reduce((s, o) => s + (o.grandTotal ?? 0), 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgb(var(--df-border))]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-400/10 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-[14px] font-bold">Completed Today</p>
+              <p className="text-[11px] text-[rgb(var(--df-text-3))]">{orders.length} orders · {totalItems} items served</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[rgb(var(--df-surface-2))] text-[rgb(var(--df-text-3))] transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Stats strip */}
+        <div className="grid grid-cols-3 divide-x divide-[rgb(var(--df-border))] border-b border-[rgb(var(--df-border))]">
+          {[
+            { label: 'Orders Done', value: orders.length.toString() },
+            { label: 'Items Served', value: totalItems.toString() },
+            { label: 'Revenue', value: `₹${totalRevenue.toFixed(0)}` },
+          ].map((s) => (
+            <div key={s.label} className="px-4 py-3 text-center">
+              <p className="text-[18px] font-bold text-[rgb(var(--df-text))]">{s.value}</p>
+              <p className="text-[10px] text-[rgb(var(--df-text-3))] uppercase tracking-wide">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Order list */}
+        <div className="overflow-y-auto flex-1 divide-y divide-[rgb(var(--df-border))]">
+          {orders.length === 0 ? (
+            <div className="py-16 flex flex-col items-center gap-3 text-[rgb(var(--df-text-3))]">
+              <ChefHat className="w-10 h-10 opacity-30" />
+              <p className="text-[13px]">No completed orders yet today</p>
+            </div>
+          ) : (
+            orders.map((order) => (
+              <div key={order.id} className="px-5 py-3.5 hover:bg-[rgb(var(--df-surface-2))]/40 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[13px] font-bold text-[rgb(var(--df-accent))]">{order.orderNumber}</span>
+                      <span className="flex items-center gap-1 text-[11px] text-[rgb(var(--df-text-3))]">
+                        {order.type === 'DINE_IN'
+                          ? <><UtensilsCrossed className="w-3 h-3" />{order.tableNumber ? `Table ${order.tableNumber}` : 'Dine In'}</>
+                          : <><Package className="w-3 h-3" />Parcel</>
+                        }
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        order.status === 'COMPLETED'
+                          ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20'
+                          : 'bg-teal-400/10 text-teal-400 border-teal-400/20'
+                      }`}>
+                        {order.status}
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-[rgb(var(--df-text-2))]">{order.customer.name}</p>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {order.items.map((item, i) => (
+                        <span key={i} className="text-[11px] bg-[rgb(var(--df-surface-2))] text-[rgb(var(--df-text-2))] px-2 py-0.5 rounded-md">
+                          {item.name} ×{item.quantity}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[12px] font-semibold text-[rgb(var(--df-text))]">₹{(order.grandTotal ?? 0).toFixed(0)}</p>
+                    <p className="text-[10px] text-[rgb(var(--df-text-3))] mt-0.5">{timeOnly(order.updatedAt)}</p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function KitchenPage(): React.JSX.Element {
   const [orders, setOrders] = useState<Order[]>([])
+  const [completed, setCompleted] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+  const [showCompleted, setShowCompleted] = useState(false)
 
   const fetchOrders = useCallback(async (): Promise<void> => {
     try {
-      const [pending, inProgress, ready] = await Promise.all([
+      const [pending, inProgress, ready, served, completedRes] = await Promise.all([
         fetch('/api/orders?status=PENDING').then((r) => r.json() as Promise<{ orders: Order[] }>),
         fetch('/api/orders?status=IN_PROGRESS').then((r) => r.json() as Promise<{ orders: Order[] }>),
         fetch('/api/orders?status=READY').then((r) => r.json() as Promise<{ orders: Order[] }>),
+        fetch('/api/orders?status=SERVED').then((r) => r.json() as Promise<{ orders: Order[] }>),
+        fetch('/api/orders?status=COMPLETED').then((r) => r.json() as Promise<{ orders: Order[] }>),
       ])
+
       setOrders([
         ...(pending.orders ?? []),
         ...(inProgress.orders ?? []),
         ...(ready.orders ?? []),
       ])
+
+      // Filter completed/served to today only
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+      const todayOrders = [
+        ...(served.orders ?? []),
+        ...(completedRes.orders ?? []),
+      ].filter((o) => new Date(o.updatedAt) >= todayStart)
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+
+      setCompleted(todayOrders)
       setLastRefreshed(new Date())
     } finally {
       setLoading(false)
     }
   }, [])
 
-  // Initial load
   useEffect(() => { void fetchOrders() }, [fetchOrders])
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
     const id = setInterval(() => void fetchOrders(), 30000)
     return () => clearInterval(id)
@@ -125,15 +249,15 @@ export default function KitchenPage(): React.JSX.Element {
     }
   }
 
-  const byStatus = (status: Order['status']): Order[] =>
+  const byStatus = (status: 'PENDING' | 'IN_PROGRESS' | 'READY'): Order[] =>
     orders
       .filter((o) => o.status === status)
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[rgb(var(--df-accent))]/10 flex items-center justify-center">
             <Flame className="w-5 h-5 text-[rgb(var(--df-accent))]" />
@@ -163,11 +287,10 @@ export default function KitchenPage(): React.JSX.Element {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 items-start">
-          {COLUMNS.map((col) => {
+          {ACTIVE_COLUMNS.map((col) => {
             const colOrders = byStatus(col.status)
             return (
               <div key={col.status} className="flex flex-col gap-3">
-                {/* Column header */}
                 <div className="flex items-center justify-between px-1">
                   <span className={`text-[13px] font-bold ${col.accent}`}>{col.label}</span>
                   <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${col.badge}`}>
@@ -175,29 +298,21 @@ export default function KitchenPage(): React.JSX.Element {
                   </span>
                 </div>
 
-                {/* Empty state */}
                 {colOrders.length === 0 && (
                   <div className="bg-[rgb(var(--df-surface))]/40 border border-dashed border-[rgb(var(--df-border))] rounded-2xl py-10 text-center">
                     <p className="text-[12px] text-[rgb(var(--df-text-3))]">No orders</p>
                   </div>
                 )}
 
-                {/* Order cards */}
                 {colOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className={`bg-[rgb(var(--df-card))] border ${col.cardBorder} rounded-2xl overflow-hidden`}
-                  >
-                    {/* Card header */}
+                  <div key={order.id} className={`bg-[rgb(var(--df-card))] border ${col.cardBorder} rounded-2xl overflow-hidden`}>
                     <div className="px-4 py-3 border-b border-[rgb(var(--df-border))] flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-[14px] font-bold text-[rgb(var(--df-accent))]">
-                          {order.orderNumber}
-                        </span>
+                        <span className="text-[14px] font-bold text-[rgb(var(--df-accent))]">{order.orderNumber}</span>
                         <span className="flex items-center gap-1 text-[11px] text-[rgb(var(--df-text-2))]">
                           {order.type === 'DINE_IN'
-                            ? <><UtensilsCrossed className="w-3 h-3" /> {order.tableNumber ? `Table ${order.tableNumber}` : 'Dine In'}</>
-                            : <><Package className="w-3 h-3" /> Parcel</>
+                            ? <><UtensilsCrossed className="w-3 h-3" />{order.tableNumber ? `Table ${order.tableNumber}` : 'Dine In'}</>
+                            : <><Package className="w-3 h-3" />Parcel</>
                           }
                         </span>
                       </div>
@@ -207,7 +322,6 @@ export default function KitchenPage(): React.JSX.Element {
                       </div>
                     </div>
 
-                    {/* Items */}
                     <div className="px-4 py-3 space-y-2">
                       {order.items.map((item, i) => (
                         <div key={i} className="flex items-start justify-between gap-2">
@@ -229,7 +343,6 @@ export default function KitchenPage(): React.JSX.Element {
                       )}
                     </div>
 
-                    {/* Action */}
                     <div className="px-4 pb-3">
                       <button
                         onClick={() => void advance(order)}
@@ -242,10 +355,7 @@ export default function KitchenPage(): React.JSX.Element {
                             : 'bg-green-400/15 hover:bg-green-400/25 text-green-400 border border-green-400/25'
                         }`}
                       >
-                        {updatingId === order.id
-                          ? <Loader2 className="w-4 h-4 animate-spin" />
-                          : <ChevronRight className="w-4 h-4" />
-                        }
+                        {updatingId === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
                         {NEXT_LABEL[order.status]}
                       </button>
                     </div>
@@ -255,6 +365,55 @@ export default function KitchenPage(): React.JSX.Element {
             )
           })}
         </div>
+      )}
+
+      {/* ── Completed Today bar ─────────────────────────────────────────────── */}
+      <div
+        className="mt-auto border border-[rgb(var(--df-border))] rounded-2xl bg-[rgb(var(--df-card))] overflow-hidden"
+      >
+        {/* Summary row — always visible */}
+        <div className="flex items-center justify-between px-5 py-3.5">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg bg-emerald-400/10 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-[13px] font-semibold text-[rgb(var(--df-text))]">Completed Today</p>
+              <p className="text-[11px] text-[rgb(var(--df-text-3))]">
+                {completed.length} orders ·{' '}
+                {completed.reduce((s, o) => s + o.items.reduce((si, i) => si + i.quantity, 0), 0)} items
+              </p>
+            </div>
+          </div>
+
+          {/* Mini order pills — last 5 */}
+          <div className="hidden sm:flex items-center gap-1.5 flex-1 mx-4 overflow-hidden">
+            {completed.slice(0, 5).map((o) => (
+              <span
+                key={o.id}
+                className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-400/10 text-emerald-400 border border-emerald-400/20"
+              >
+                {o.orderNumber}
+              </span>
+            ))}
+            {completed.length > 5 && (
+              <span className="text-[11px] text-[rgb(var(--df-text-3))] shrink-0">+{completed.length - 5} more</span>
+            )}
+          </div>
+
+          <button
+            onClick={() => setShowCompleted(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-semibold bg-emerald-400/10 hover:bg-emerald-400/20 text-emerald-400 border border-emerald-400/25 transition-colors shrink-0"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            View All
+          </button>
+        </div>
+      </div>
+
+      {/* Modal */}
+      {showCompleted && (
+        <CompletedModal orders={completed} onClose={() => setShowCompleted(false)} />
       )}
     </div>
   )

@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useCurrency } from '@/hooks/useCurrency'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
+import { useToast } from '@/components/providers/ToastProvider'
 import {
   ArrowLeft, Loader2, UtensilsCrossed, Package, Receipt,
   ChevronDown, CheckCircle2, XCircle,
@@ -54,8 +57,11 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 }
 
 export default function OrderDetailPage(): React.JSX.Element {
+  const { confirm } = useConfirm()
+  const toast = useToast()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const { format: fmt, symbol } = useCurrency()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
@@ -83,6 +89,7 @@ export default function OrderDetailPage(): React.JSX.Element {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
+      toast.success('Status updated', `Order moved to ${status.replace('_', ' ').toLowerCase()}`)
       void fetchOrder()
     } finally {
       setUpdating(false)
@@ -101,6 +108,7 @@ export default function OrderDetailPage(): React.JSX.Element {
           paidAmount: order?.grandTotal,
         }),
       })
+      toast.success('Payment recorded', `Paid via ${payMethod}`)
       setShowPayment(false)
       void fetchOrder()
     } finally {
@@ -109,8 +117,10 @@ export default function OrderDetailPage(): React.JSX.Element {
   }
 
   async function cancelOrder(): Promise<void> {
-    if (!confirm('Cancel this order?')) return
+    const ok = await confirm({ title: 'Cancel Order', message: 'This order will be marked as cancelled. This cannot be undone.', confirmLabel: 'Cancel Order', variant: 'danger' })
+    if (!ok) return
     await updateStatus('CANCELLED')
+    toast.warning('Order cancelled')
   }
 
   if (loading) {
@@ -222,7 +232,7 @@ export default function OrderDetailPage(): React.JSX.Element {
                 <button onClick={() => void markPaid()} disabled={updating}
                   className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-[13px] font-medium transition-all disabled:opacity-50">
                   {updating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Confirm ₹{order.grandTotal.toFixed(2)} received
+                  Confirm {fmt(order.grandTotal)} received
                 </button>
               </div>
             )}
@@ -238,11 +248,11 @@ export default function OrderDetailPage(): React.JSX.Element {
                 <div className="flex-1">
                   <p className="text-[13px] font-medium text-[rgb(var(--df-text))]">{item.name}</p>
                   {item.notes && <p className="text-[11px] text-[rgb(var(--df-text-3))] mt-0.5">{item.notes}</p>}
-                  <p className="text-[11px] text-[rgb(var(--df-text-3))]">₹{item.price} × {item.quantity} · GST {item.gstRate}%</p>
+                  <p className="text-[11px] text-[rgb(var(--df-text-3))]">{symbol}{item.price} × {item.quantity} · GST {item.gstRate}%</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[13px] font-semibold text-[rgb(var(--df-text))]">₹{item.total.toFixed(2)}</p>
-                  <p className="text-[11px] text-[rgb(var(--df-text-3))]">CGST ₹{item.cgst.toFixed(2)} + SGST ₹{item.sgst.toFixed(2)}</p>
+                  <p className="text-[13px] font-semibold text-[rgb(var(--df-text))]">{fmt(item.total)}</p>
+                  <p className="text-[11px] text-[rgb(var(--df-text-3))]">CGST {fmt(item.cgst)} + SGST {fmt(item.sgst)}</p>
                 </div>
               </div>
             ))}
@@ -277,17 +287,17 @@ export default function OrderDetailPage(): React.JSX.Element {
             <p className="text-[11px] font-semibold text-[rgb(var(--df-text-3))] uppercase tracking-wide mb-3">Bill Summary</p>
             <div className="space-y-1.5 text-[13px]">
               <div className="flex justify-between text-[rgb(var(--df-text-2))]">
-                <span>Subtotal</span><span>₹{order.subtotal.toFixed(2)}</span>
+                <span>Subtotal</span><span>{fmt(order.subtotal)}</span>
               </div>
               <div className="flex justify-between text-[rgb(var(--df-text-2))]">
-                <span>CGST</span><span>₹{order.totalCGST.toFixed(2)}</span>
+                <span>CGST</span><span>{fmt(order.totalCGST)}</span>
               </div>
               <div className="flex justify-between text-[rgb(var(--df-text-2))]">
-                <span>SGST</span><span>₹{order.totalSGST.toFixed(2)}</span>
+                <span>SGST</span><span>{fmt(order.totalSGST)}</span>
               </div>
               <div className="flex justify-between font-bold text-[15px] pt-2 border-t border-[rgb(var(--df-border))] text-[rgb(var(--df-text))]">
                 <span>Grand Total</span>
-                <span className="text-[rgb(var(--df-accent))]">₹{order.grandTotal.toFixed(2)}</span>
+                <span className="text-[rgb(var(--df-accent))]">{fmt(order.grandTotal)}</span>
               </div>
             </div>
           </div>

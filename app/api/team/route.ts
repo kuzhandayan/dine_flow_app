@@ -4,6 +4,7 @@ import { requireRole, AuthError } from '@/lib/middleware-helpers'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import type { UserRole } from '@prisma/client'
+import { DEFAULT_PERMISSIONS, CUSTOMIZABLE_ROLES } from '@/constants/ROLES'
 
 const MANAGEABLE_ROLES: UserRole[] = ['WAITER', 'KITCHEN', 'CASHIER', 'MANAGER']
 
@@ -12,6 +13,7 @@ const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6).max(64),
   role: z.enum(['WAITER', 'KITCHEN', 'CASHIER', 'MANAGER']),
+  permissions: z.array(z.string()).optional(),
 })
 
 export async function GET(): Promise<NextResponse> {
@@ -28,6 +30,7 @@ export async function GET(): Promise<NextResponse> {
         name: true,
         email: true,
         role: true,
+        permissions: true,
         isActive: true,
         createdAt: true,
       },
@@ -51,9 +54,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Validation failed', issues: parsed.error.issues }, { status: 400 })
     }
 
-    const { name, email, password, role } = parsed.data
+    const { name, email, password, role, permissions } = parsed.data
 
-    // MANAGER can only create WAITER, KITCHEN, CASHIER — not another MANAGER
     if (session.role === 'MANAGER' && role === 'MANAGER') {
       return NextResponse.json({ error: 'Managers cannot create other managers' }, { status: 403 })
     }
@@ -65,6 +67,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 })
     }
 
+    // Use provided permissions, or role defaults for customizable roles, or empty for MANAGER
+    const resolvedPermissions: string[] = CUSTOMIZABLE_ROLES.includes(role as UserRole)
+      ? (permissions ?? DEFAULT_PERMISSIONS[role as UserRole] ?? [])
+      : []
+
     const hashed = await bcrypt.hash(password, 12)
     const user = await prisma.user.create({
       data: {
@@ -73,8 +80,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         email: email.toLowerCase(),
         password: hashed,
         role: role as UserRole,
+        permissions: resolvedPermissions,
       },
-      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, permissions: true, isActive: true, createdAt: true },
     })
 
     return NextResponse.json({ user }, { status: 201 })

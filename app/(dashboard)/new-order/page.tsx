@@ -7,7 +7,7 @@ import {
   ChevronRight, ChevronLeft, Users, ShoppingCart, Check, Loader2,
 } from 'lucide-react'
 import { toast } from '@/hooks/useToast'
-import { formatINR } from '@/lib/currency'
+import { useCurrency } from '@/hooks/useCurrency'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,6 +34,7 @@ const STEPS: Step[] = ['type', 'customer', 'menu', 'confirm']
 
 export default function NewOrderPage(): React.JSX.Element {
   const router = useRouter()
+  const { format: fmt } = useCurrency()
   const [step, setStep] = useState<Step>('type')
 
   // Step 1
@@ -497,7 +498,7 @@ export default function NewOrderPage(): React.JSX.Element {
                             </span>
                             <div className="min-w-0">
                               <p className="text-[13px] font-medium truncate">{item.name}</p>
-                              <p className="text-[12px] text-[rgb(var(--df-text-2))]">{formatINR(item.price)}</p>
+                              <p className="text-[12px] text-[rgb(var(--df-text-2))]">{fmt(item.price)}</p>
                             </div>
                           </div>
                           {qty === 0 ? (
@@ -535,7 +536,7 @@ export default function NewOrderPage(): React.JSX.Element {
                   <ShoppingCart className="w-3.5 h-3.5 inline mr-1" />
                   {cart.reduce((s, c) => s + c.quantity, 0)} items
                 </span>
-                <span className="text-[14px] font-bold">{formatINR(grandTotal)}</span>
+                <span className="text-[14px] font-bold">{fmt(grandTotal)}</span>
               </div>
               <button
                 onClick={goNext}
@@ -594,7 +595,7 @@ export default function NewOrderPage(): React.JSX.Element {
                     <span className="text-[13px] truncate">{item.name}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-[13px] font-medium">{formatINR(itemTotal)}</span>
+                    <span className="text-[13px] font-medium">{fmt(itemTotal)}</span>
                     <button onClick={() => deleteFromCart(item.menuItemId)} className="text-[rgb(var(--df-text-2))] hover:text-red-400 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -607,13 +608,13 @@ export default function NewOrderPage(): React.JSX.Element {
           {/* Totals */}
           <div className="bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-xl p-4 space-y-2">
             <div className="flex justify-between text-[13px] text-[rgb(var(--df-text-2))]">
-              <span>Subtotal</span><span>{formatINR(subtotal)}</span>
+              <span>Subtotal</span><span>{fmt(subtotal)}</span>
             </div>
             <div className="flex justify-between text-[13px] text-[rgb(var(--df-text-2))]">
-              <span>GST (CGST + SGST)</span><span>{formatINR(totalGST)}</span>
+              <span>GST (CGST + SGST)</span><span>{fmt(totalGST)}</span>
             </div>
             <div className="flex justify-between text-[15px] font-bold border-t border-[rgb(var(--df-border))] pt-2">
-              <span>Grand Total</span><span className="text-[rgb(var(--df-accent))]">{formatINR(grandTotal)}</span>
+              <span>Grand Total</span><span className="text-[rgb(var(--df-accent))]">{fmt(grandTotal)}</span>
             </div>
           </div>
 
@@ -632,7 +633,7 @@ export default function NewOrderPage(): React.JSX.Element {
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[rgb(var(--df-accent))] text-white font-bold text-[15px] hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {placing && <Loader2 className="w-4 h-4 animate-spin" />}
-            Place Order · {formatINR(grandTotal)}
+            Place Order · {fmt(grandTotal)}
           </button>
         </div>
       )}

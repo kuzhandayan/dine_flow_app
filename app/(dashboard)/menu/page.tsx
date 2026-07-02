@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Plus, Loader2, X, Pencil, Trash2, UtensilsCrossed, Leaf, Drumstick } from 'lucide-react'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
+import { useToast } from '@/components/providers/ToastProvider'
 
 interface Category { id: string; name: string; sortOrder: number; isActive: boolean }
 interface MenuItem {
@@ -24,6 +26,8 @@ const emptyItem = { name: '', description: '', price: '', gstRate: '5', isVeg: t
 const emptyCat = { name: '' }
 
 export default function MenuPage(): React.JSX.Element {
+  const { confirm } = useConfirm()
+  const toast = useToast()
   const [categories, setCategories] = useState<CategoryWithItems[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'items' | 'categories'>('items')
@@ -94,6 +98,7 @@ export default function MenuPage(): React.JSX.Element {
       })
       const data = (await res.json()) as { error?: string }
       if (!res.ok) { setItemError(data.error ?? 'Failed'); return }
+      toast.success(editItemId ? 'Item updated' : 'Item added', itemForm.name)
       setShowItemForm(false); void fetchMenu()
     } finally { setItemSaving(false) }
   }
@@ -107,11 +112,15 @@ export default function MenuPage(): React.JSX.Element {
     void fetchMenu()
   }
 
-  async function deleteItem(id: string): Promise<void> {
-    if (!confirm('Delete this menu item?')) return
+  async function deleteItem(id: string, name: string): Promise<void> {
+    const ok = await confirm({ title: 'Delete Menu Item', message: `"${name}" will be permanently removed from the menu.`, confirmLabel: 'Delete', variant: 'danger' })
+    if (!ok) return
     setDeletingId(id)
-    try { await fetch(`/api/menu/${id}`, { method: 'DELETE' }); void fetchMenu() }
-    finally { setDeletingId(null) }
+    try {
+      await fetch(`/api/menu/${id}`, { method: 'DELETE' })
+      toast.success('Item deleted', name)
+      void fetchMenu()
+    } finally { setDeletingId(null) }
   }
 
   function openAddCat(): void { setEditCatId(null); setCatForm(emptyCat); setCatError(''); setShowCatForm(true) }
@@ -128,15 +137,20 @@ export default function MenuPage(): React.JSX.Element {
       })
       const data = (await res.json()) as { error?: string }
       if (!res.ok) { setCatError(data.error ?? 'Failed'); return }
+      toast.success(editCatId ? 'Category updated' : 'Category added', catForm.name)
       setShowCatForm(false); void fetchMenu()
     } finally { setCatSaving(false) }
   }
 
-  async function deleteCat(id: string): Promise<void> {
-    if (!confirm('Delete this category? Items in it will be uncategorised.')) return
+  async function deleteCat(id: string, name: string): Promise<void> {
+    const ok = await confirm({ title: 'Delete Category', message: `"${name}" will be deleted. Items in it will become uncategorised.`, confirmLabel: 'Delete', variant: 'danger' })
+    if (!ok) return
     setDeletingId(id)
-    try { await fetch(`/api/menu/categories/${id}`, { method: 'DELETE' }); void fetchMenu() }
-    finally { setDeletingId(null) }
+    try {
+      await fetch(`/api/menu/categories/${id}`, { method: 'DELETE' })
+      toast.success('Category deleted', name)
+      void fetchMenu()
+    } finally { setDeletingId(null) }
   }
 
   return (
@@ -259,7 +273,7 @@ export default function MenuPage(): React.JSX.Element {
                       <button onClick={() => openEditItem(item)} className="p-1.5 rounded-lg hover:bg-[rgb(var(--df-surface-2))] text-[rgb(var(--df-text-2))] hover:text-[rgb(var(--df-text))]">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => void deleteItem(item.id)} disabled={deletingId === item.id}
+                      <button onClick={() => void deleteItem(item.id, item.name)} disabled={deletingId === item.id}
                         className="p-1.5 rounded-lg hover:bg-red-400/10 text-[rgb(var(--df-text-3))] hover:text-red-400">
                         {deletingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                       </button>
@@ -321,7 +335,7 @@ export default function MenuPage(): React.JSX.Element {
                     <button onClick={() => openEditCat(cat)} className="p-1.5 rounded-lg hover:bg-[rgb(var(--df-surface-2))] text-[rgb(var(--df-text-2))] hover:text-[rgb(var(--df-text))]">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => void deleteCat(cat.id)} disabled={deletingId === cat.id}
+                    <button onClick={() => void deleteCat(cat.id, cat.name)} disabled={deletingId === cat.id}
                       className="p-1.5 rounded-lg hover:bg-red-400/10 text-[rgb(var(--df-text-3))] hover:text-red-400">
                       {deletingId === cat.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                     </button>

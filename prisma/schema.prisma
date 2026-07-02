@@ -60,6 +60,7 @@ model User {
   emailVerified DateTime?
   password      String
   role          UserRole  @default(WAITER)
+  permissions   String[]  @default([])
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -131,6 +132,7 @@ model Customer {
   totalOrders Int       @default(0)
   totalSpent  Float     @default(0)
   lastVisitAt DateTime?
+  isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -173,6 +175,7 @@ model MenuItem {
   costPrice       Float?
   gstRate         Float   @default(5)
   isAvailable     Boolean @default(true)
+  isActive        Boolean @default(true)
   isVeg           Boolean @default(true)
   sortOrder       Int     @default(0)
   inventoryItemId String?
@@ -203,6 +206,7 @@ model InventoryItem {
   costPerUnit     Float     @default(0)
   supplier        String?
   lastRestockedAt DateTime?
+  isActive        Boolean   @default(true)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

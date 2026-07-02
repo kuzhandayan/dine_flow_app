@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useCurrency } from '@/hooks/useCurrency'
 import { PageHeader } from '@/components/shared/PageHeader'
 import {
   Search,
@@ -69,6 +70,7 @@ const STATUS_FILTERS = [
 
 export default function OrdersPage(): React.JSX.Element {
   const router = useRouter()
+  const { format: fmt } = useCurrency()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
@@ -194,7 +196,7 @@ export default function OrdersPage(): React.JSX.Element {
                   {order.tableNumber ? `T-${order.tableNumber}` : order.type === 'DINE_IN' ? 'Dine In' : 'Parcel'}
                 </span>
                 <span className="text-[13px] font-medium text-[rgb(var(--df-text))]">
-                  ₹{order.grandTotal.toFixed(2)}
+                  {fmt(order.grandTotal)}
                 </span>
                 <span className={`text-[12px] font-medium ${pt.color}`}>{pt.label}</span>
                 <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium border ${st.color}`}>

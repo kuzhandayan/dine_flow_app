@@ -11,7 +11,7 @@ export async function GET(): Promise<NextResponse> {
       where: { tenantId: session.tenantId, isActive: true },
       include: {
         menuItems: {
-          where: { tenantId: session.tenantId, isAvailable: true },
+          where: { tenantId: session.tenantId, isActive: true },
           orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
         },
       },

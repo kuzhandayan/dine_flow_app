@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Pencil, Check, X, Loader2, LayoutGrid } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { toast } from '@/hooks/useToast'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
+import { useToast } from '@/components/providers/ToastProvider'
 
 interface Table {
   id: string
@@ -14,6 +15,8 @@ interface Table {
 }
 
 export default function TablesSettingsPage(): React.JSX.Element {
+  const { confirm } = useConfirm()
+  const toast = useToast()
   const [tables, setTables] = useState<Table[]>([])
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
@@ -107,10 +110,11 @@ export default function TablesSettingsPage(): React.JSX.Element {
   }
 
   async function deleteTable(id: string, name: string): Promise<void> {
-    if (!confirm(`Delete table "${name}"?`)) return
+    const ok = await confirm({ title: 'Delete Table', message: `Table "${name}" will be permanently removed.`, confirmLabel: 'Delete', variant: 'danger' })
+    if (!ok) return
     try {
       await fetch(`/api/tables/${id}`, { method: 'DELETE' })
-      toast.success(`Table "${name}" deleted`)
+      toast.success('Table deleted', name)
       await fetchTables()
     } catch {
       toast.error('Failed to delete table')

@@ -7,7 +7,7 @@ export async function GET(): Promise<NextResponse> {
   try {
     const session = await requireAuth()
     const inventoryItems = await prisma.inventoryItem.findMany({
-      where: { tenantId: session.tenantId },
+      where: { tenantId: session.tenantId, isActive: true },
       orderBy: { name: 'asc' },
     })
     return NextResponse.json({ inventoryItems })

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
-import { formatINR, formatINRCompact } from '@/lib/currency'
+import { formatCurrency, formatCurrencyCompact } from '@/lib/currency'
 import { ShoppingCart, IndianRupee, Users, AlertTriangle } from 'lucide-react'
 import type { Metadata } from 'next'
 
@@ -14,6 +14,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
   if (!session) redirect('/login')
 
   const tenantId = session.user.tenantId
+  const currency = session.user.currency ?? 'INR'
   const today = new Date()
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
 
@@ -26,8 +27,9 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
       where: { tenantId },
       select: { quantity: true, minStockLevel: true },
     }),
+    // Use updatedAt: orders paid/completed today regardless of when they were created
     prisma.order.aggregate({
-      where: { tenantId, paymentStatus: 'PAID', createdAt: { gte: startOfDay } },
+      where: { tenantId, paymentStatus: 'PAID', updatedAt: { gte: startOfDay } },
       _sum: { grandTotal: true },
     }),
   ])
@@ -60,8 +62,8 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard
           label="Today's Revenue"
-          value={formatINRCompact(revenue)}
-          subtitle={formatINR(revenue)}
+          value={formatCurrencyCompact(revenue, currency)}
+          subtitle={formatCurrency(revenue, currency)}
           color="rgb(var(--df-accent))"
           icon={<IndianRupee className="w-5 h-5" />}
         />
@@ -122,7 +124,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
                       {order.type.replace('_', ' ')}
                     </td>
                     <td className="px-3 py-2.5 border-b border-[rgba(45,49,73,0.4)] font-medium">
-                      {formatINR(order.grandTotal)}
+                      {formatCurrency(order.grandTotal, currency)}
                     </td>
                     <td className="px-3 py-2.5 border-b border-[rgba(45,49,73,0.4)]">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-500/15 text-yellow-400">

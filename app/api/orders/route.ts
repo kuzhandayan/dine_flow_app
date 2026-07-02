@@ -61,6 +61,7 @@ export async function POST(req: Request): Promise<NextResponse> {
         tenantId: session.tenantId,
         id: { in: items.map((i) => i.menuItemId) },
         isAvailable: true,
+        isActive: true,
       },
     })
 

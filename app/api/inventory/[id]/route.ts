@@ -44,8 +44,9 @@ export async function DELETE(
     const session = await requireAuth()
     const { id } = await params
 
-    await prisma.inventoryItem.delete({
+    await prisma.inventoryItem.updateMany({
       where: { id, tenantId: session.tenantId },
+      data: { isActive: false },
     })
 
     return NextResponse.json({ success: true })
