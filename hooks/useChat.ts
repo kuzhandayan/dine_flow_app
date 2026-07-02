@@ -11,6 +11,7 @@ interface DirectResponse {
   messages: DirectMessage[]
 }
 
+
 interface DirectConversationsResponse {
   conversations: DirectConversationSummary[]
 }
