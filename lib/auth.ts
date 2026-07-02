@@ -33,10 +33,14 @@ export const authOptions: NextAuthOptions = {
           },
         })
 
-        if (!user || !user.tenant.isActive || user.tenant.isSuspended) return null
+        if (!user) return null
 
         const passwordMatch = await bcrypt.compare(password, user.password)
         if (!passwordMatch) return null
+
+        // Valid credentials — now check tenant access
+        if (user.tenant.isSuspended) throw new Error('ACCOUNT_SUSPENDED')
+        if (!user.tenant.isActive) throw new Error('ACCOUNT_INACTIVE')
 
         // Use stored permissions, fall back to role defaults for staff
         const permissions: string[] =

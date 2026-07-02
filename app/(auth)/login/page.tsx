@@ -15,6 +15,7 @@ export default function LoginPage(): React.JSX.Element {
   const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard'
   const [showPassword, setShowPassword] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [isAccessError, setIsAccessError] = useState(false)
 
   const {
     register,
@@ -24,6 +25,7 @@ export default function LoginPage(): React.JSX.Element {
 
   async function onSubmit(data: LoginInput): Promise<void> {
     setServerError(null)
+    setIsAccessError(false)
     const result = await signIn('credentials', {
       email: data.email,
       password: data.password,
@@ -31,7 +33,16 @@ export default function LoginPage(): React.JSX.Element {
     })
 
     if (result?.error) {
-      setServerError('Invalid email or password')
+      if (result.error === 'ACCOUNT_SUSPENDED') {
+        setIsAccessError(true)
+        setServerError('Your restaurant account has been suspended. Please contact the platform admin.')
+      } else if (result.error === 'ACCOUNT_INACTIVE') {
+        setIsAccessError(true)
+        setServerError('Your restaurant account has been deactivated. Please contact the platform admin.')
+      } else {
+        setIsAccessError(false)
+        setServerError('Invalid email or password')
+      }
       return
     }
 
@@ -81,7 +92,7 @@ export default function LoginPage(): React.JSX.Element {
               <input
                 {...register('email')}
                 type="email"
-                placeholder="owner@restaurant.com"
+                placeholder="Enter email address"
                 className="w-full bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] focus:border-[rgb(var(--df-accent))] focus:outline-none rounded-lg px-3 py-2.5 text-[13px] text-[rgb(var(--df-text))] placeholder:text-[rgb(var(--df-text-3))] transition-colors"
               />
               {errors.email && (
@@ -114,8 +125,14 @@ export default function LoginPage(): React.JSX.Element {
             </div>
 
             {serverError && (
-              <div className="bg-red-500/10 border border-red-500/25 rounded-lg px-3 py-2.5">
-                <p className="text-[12px] text-red-400">{serverError}</p>
+              <div className={`rounded-lg px-3 py-2.5 ${
+                isAccessError
+                  ? 'bg-amber-500/10 border border-amber-500/25'
+                  : 'bg-red-500/10 border border-red-500/25'
+              }`}>
+                <p className={`text-[12px] ${isAccessError ? 'text-amber-400' : 'text-red-400'}`}>
+                  {serverError}
+                </p>
               </div>
             )}
 

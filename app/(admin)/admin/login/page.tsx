@@ -76,7 +76,7 @@ export default function AdminLoginPage(): React.JSX.Element {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                placeholder="admin@dineflow.in"
+                placeholder="Enter email address"
                 className="w-full px-3 py-2.5 text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-xl focus:outline-none focus:border-purple-500 transition-colors text-[rgb(var(--df-text))] placeholder:text-[rgb(var(--df-text-3))]"
               />
             </div>

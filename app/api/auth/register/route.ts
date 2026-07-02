@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/password'
 import { registerSchema } from '@/lib/validations/auth'
+import { seedTenantDefaults } from '@/lib/tenant-defaults'
 
 function generateSlug(name: string): string {
   return name
@@ -70,11 +71,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           status: 'ACTIVE',
         },
       })
+
+      await seedTenantDefaults(tx, tenant.id)
     })
 
     return NextResponse.json({ success: true }, { status: 201 })
   } catch (error) {
-    console.error('[POST /api/auth/register]', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal server error' }, { status: 500 })
   }
 }
