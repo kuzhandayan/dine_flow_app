@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /orders/
+Disallow: /new-order/
+Disallow: /check-order/
+Disallow: /menu/
+Disallow: /inventory/
+Disallow: /customers/
+Disallow: /reports/
+Disallow: /settings/
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: /sitemap.xml

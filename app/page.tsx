@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -17,9 +18,90 @@ import {
   Landmark,
 } from 'lucide-react'
 
+export const metadata: Metadata = {
+  title: 'DineFlow — Restaurant POS & Management Software for Indian Restaurants',
+  description:
+    'DineFlow is a cloud-based Restaurant POS and Management SaaS for Indian restaurants. GST billing, order management, inventory tracking, staff roles, and analytics — all in one platform. Built by Kuzhandayan K V.',
+  keywords: [
+    'restaurant POS India',
+    'restaurant management software India',
+    'GST billing software restaurant',
+    'cloud POS India',
+    'dine-in order management',
+    'restaurant inventory tracking',
+    'DineFlow',
+    'Kuzhandayan',
+    'Kuzhandayan K V',
+    'sabbari.kv013@gmail.com',
+  ],
+  openGraph: {
+    title: 'DineFlow — Restaurant POS & Management Software',
+    description:
+      'Cloud-based Restaurant POS for Indian restaurants. GST billing, orders, inventory, staff roles & analytics.',
+    url: '/',
+  },
+}
+
+const JSON_LD_SOFTWARE = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'DineFlow',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  description:
+    'Cloud-based Restaurant POS and Management SaaS for Indian restaurants with GST billing, order management, inventory, staff roles, and analytics.',
+  author: {
+    '@type': 'Person',
+    name: 'Kuzhandayan K V',
+    email: 'sabbari.kv013@gmail.com',
+  },
+  creator: {
+    '@type': 'Person',
+    name: 'Kuzhandayan K V',
+    email: 'sabbari.kv013@gmail.com',
+    alternateName: ['Kuzhandayan', 'sabbari'],
+  },
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'INR',
+  },
+  featureList: [
+    'GST Tax Invoice generation with CGST and SGST breakup',
+    'Multi-tenant Restaurant POS',
+    'Order Management with dine-in and parcel support',
+    'Inventory tracking with low stock alerts',
+    'Role-based access for Owner, Manager, Waiter, Cashier',
+    'Customer management with order history',
+    'Monthly revenue and GST reports',
+    'Staff invite system',
+  ],
+}
+
+const JSON_LD_PERSON = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: 'Kuzhandayan K V',
+  alternateName: ['Kuzhandayan', 'sabbari', 'kuzhandayan'],
+  email: 'sabbari.kv013@gmail.com',
+  jobTitle: 'Full Stack Developer',
+  description:
+    'Full Stack Developer and creator of DineFlow, a cloud-based Restaurant POS and Management SaaS for Indian restaurants.',
+  knowsAbout: ['Restaurant POS Software', 'Next.js', 'TypeScript', 'SaaS Development', 'GST Billing India'],
+  sameAs: ['mailto:sabbari.kv013@gmail.com'],
+}
+
 export default function HomePage(): React.JSX.Element {
   return (
     <div className="min-h-screen bg-[rgb(var(--df-bg))] text-[rgb(var(--df-text))]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_SOFTWARE) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_PERSON) }}
+      />
       {/* Floating Nav */}
       <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-2xl">
         <nav className="bg-[rgb(var(--df-card))]/90 backdrop-blur-md border border-[rgb(var(--df-border))] rounded-2xl px-4 py-3 flex items-center justify-between shadow-xl shadow-black/20">
@@ -177,10 +259,20 @@ export default function HomePage(): React.JSX.Element {
           <ShieldCheck className="w-10 h-10 text-[rgb(var(--df-accent))] mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-3">About DineFlow</h2>
           <p className="text-[rgb(var(--df-text-2))] text-[14px] leading-relaxed">
-            DineFlow is a multi-tenant restaurant POS and management SaaS. Each restaurant gets a
+            DineFlow is a multi-tenant restaurant POS and management SaaS built and maintained by{' '}
+            <strong className="text-[rgb(var(--df-text))]">Kuzhandayan K V</strong>. Each restaurant gets a
             fully isolated workspace — your data is never mixed with another restaurant&apos;s.
-            Built on Next.js 16, Prisma, and hosted on Supabase, it&apos;s fast, reliable, and GST-ready
+            Built on Next.js, Prisma, and hosted on Supabase, it&apos;s fast, reliable, and GST-ready
             from day one.
+          </p>
+          <p className="mt-4 text-[12px] text-[rgb(var(--df-text-3))]">
+            Contact:{' '}
+            <a
+              href="mailto:sabbari.kv013@gmail.com"
+              className="text-[rgb(var(--df-accent))] hover:underline"
+            >
+              sabbari.kv013@gmail.com
+            </a>
           </p>
         </div>
       </section>
