@@ -114,18 +114,12 @@ function LoginForm(): React.JSX.Element {
         </button>
       </form>
 
-      <div className="mt-4 flex items-center justify-between text-[12px]">
+      <div className="mt-4 flex items-center justify-center text-[12px]">
         <Link
           href="/forgot-password"
           className="text-[rgb(var(--df-text-2))] hover:text-[rgb(var(--df-accent))] transition-colors"
         >
           Forgot password?
-        </Link>
-        <Link
-          href="/register"
-          className="text-[rgb(var(--df-accent))] hover:text-[rgb(var(--df-accent-hover))] transition-colors"
-        >
-          Register restaurant →
         </Link>
       </div>
     </div>
