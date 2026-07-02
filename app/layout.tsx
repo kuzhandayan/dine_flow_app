@@ -13,7 +13,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env['NEXT_PUBLIC_APP_URL'] ?? 'http://localhost:3000'),
+  metadataBase: new URL(process.env['NEXT_PUBLIC_APP_URL'] ?? 'https://dine-flow-omega.vercel.app'),
   title: {
     default: 'DineFlow — Restaurant POS & Management Software India',
     template: '%s | DineFlow',
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    url: process.env['NEXT_PUBLIC_APP_URL'] ?? 'http://localhost:3000',
+    url: process.env['NEXT_PUBLIC_APP_URL'] ?? 'https://dine-flow-omega.vercel.app',
     siteName: 'DineFlow',
     title: 'DineFlow — Restaurant POS & Management Software India',
     description:
