@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { AdminShell } from '@/components/admin/AdminShell'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = { title: { template: '%s | DineFlow Admin', default: 'Admin' } }
 
 export default async function AdminLayout({
