@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import type { UserRole } from '@prisma/client'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
@@ -23,11 +24,12 @@ export function DashboardShell({
 }: DashboardShellProps): React.JSX.Element {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const queryClient = useQueryClient()
 
-  // Close sidebar on navigation
   useEffect(() => {
     setSidebarOpen(false)
-  }, [pathname])
+    void queryClient.invalidateQueries()
+  }, [pathname, queryClient])
 
   // Close sidebar on resize to desktop
   useEffect(() => {

@@ -22,13 +22,16 @@ export async function GET(req: Request): Promise<NextResponse> {
     const session = await requireAuth()
     const url = new URL(req.url)
     const status = url.searchParams.get('status')
+    const search = url.searchParams.get('search')?.trim()
     const page = parseInt(url.searchParams.get('page') ?? '1')
     const limit = 20
 
     const orders = await prisma.order.findMany({
       where: {
         tenantId: session.tenantId,
+        isActive: true,
         ...(status ? { status: status as never } : {}),
+        ...(search ? { orderNumber: { contains: search, mode: 'insensitive' as const } } : {}),
       },
       include: {
         customer: { select: { name: true, phone: true } },

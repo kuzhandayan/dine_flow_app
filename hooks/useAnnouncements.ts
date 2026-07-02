@@ -30,7 +30,7 @@ export function useAnnouncementUnreadCount() {
       if (!res.ok) return { count: 0 }
       return res.json() as Promise<UnreadCountResponse>
     },
-    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   })
 }
 

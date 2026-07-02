@@ -13,7 +13,7 @@ export async function GET(): Promise<NextResponse> {
   try {
     const session = await requireAuth()
     const tables = await prisma.restaurantTable.findMany({
-      where: { tenantId: session.tenantId },
+      where: { tenantId: session.tenantId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     })
     return NextResponse.json({ tables })

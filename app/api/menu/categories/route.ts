@@ -7,7 +7,7 @@ export async function GET(): Promise<NextResponse> {
   try {
     const session = await requireAuth()
     const categories = await prisma.category.findMany({
-      where: { tenantId: session.tenantId },
+      where: { tenantId: session.tenantId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     })
     return NextResponse.json({ categories })

@@ -23,8 +23,7 @@ export function useCommunityMessages() {
       if (!res.ok) throw new Error('Failed to fetch community messages')
       return res.json() as Promise<CommunityResponse>
     },
-    refetchInterval: 5_000,
-    staleTime: 0,
+    refetchOnWindowFocus: true,
   })
 }
 
@@ -36,8 +35,7 @@ export function useDirectMessages(tenantId: string) {
       if (!res.ok) throw new Error('Failed to fetch messages')
       return res.json() as Promise<DirectResponse>
     },
-    refetchInterval: 5_000,
-    staleTime: 0,
+    refetchOnWindowFocus: true,
     enabled: !!tenantId,
   })
 }
@@ -87,7 +85,7 @@ export function useChatUnreadCounts() {
       if (!res.ok) return { community: 0, direct: 0 }
       return res.json() as Promise<ChatUnreadCounts>
     },
-    refetchInterval: 10_000,
+    refetchOnWindowFocus: true,
   })
 }
 
@@ -99,6 +97,6 @@ export function useAdminDirectConversations() {
       if (!res.ok) throw new Error('Failed to fetch conversations')
       return res.json() as Promise<DirectConversationsResponse>
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   })
 }
