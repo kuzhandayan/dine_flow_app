@@ -46,6 +46,7 @@ export async function PATCH(req: Request): Promise<NextResponse> {
         email: email || null,
         ...(currency ? { currency } : {}),
         ...(timezone ? { timezone } : {}),
+        updatedById: session.userId,
       },
       select: { id: true, name: true, slug: true, address: true, phone: true, email: true, currency: true, timezone: true },
     })

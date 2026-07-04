@@ -3,14 +3,14 @@
 
 @layer base {
   :root {
-    --df-bg: 15 17 23;
-    --df-surface: 26 29 46;
-    --df-surface-2: 37 40 64;
-    --df-card: 30 34 53;
-    --df-border: 45 49 73;
+    --df-bg: 13 14 23;
+    --df-surface: 20 21 36;
+    --df-surface-2: 30 31 52;
+    --df-card: 24 25 42;
+    --df-border: 40 41 66;
 
-    --df-accent: 249 115 22;
-    --df-accent-hover: 251 146 60;
+    --df-accent: 99 102 241;
+    --df-accent-hover: 129 140 248;
     --df-green: 34 197 94;
     --df-red: 239 68 68;
     --df-blue: 59 130 246;
@@ -24,43 +24,57 @@
     --radius: 0.5rem;
 
     /* shadcn/ui compat */
-    --background: 15 17 23;
+    --background: 13 14 23;
     --foreground: 226 232 240;
-    --card: 30 34 53;
+    --card: 24 25 42;
     --card-foreground: 226 232 240;
-    --popover: 30 34 53;
+    --popover: 24 25 42;
     --popover-foreground: 226 232 240;
-    --primary: 249 115 22;
+    --primary: 99 102 241;
     --primary-foreground: 255 255 255;
-    --secondary: 37 40 64;
+    --secondary: 30 31 52;
     --secondary-foreground: 226 232 240;
-    --muted: 37 40 64;
+    --muted: 30 31 52;
     --muted-foreground: 148 163 184;
-    --accent: 37 40 64;
+    --accent: 30 31 52;
     --accent-foreground: 226 232 240;
     --destructive: 239 68 68;
     --destructive-foreground: 255 255 255;
-    --border: 45 49 73;
-    --input: 37 40 64;
-    --ring: 249 115 22;
+    --border: 40 41 66;
+    --input: 30 31 52;
+    --ring: 99 102 241;
   }
 
   .light {
-    --df-bg: 248 250 252;
+    --df-bg: 250 249 246;
     --df-surface: 255 255 255;
-    --df-surface-2: 241 245 249;
+    --df-surface-2: 243 242 237;
     --df-card: 255 255 255;
-    --df-border: 226 232 240;
-    --df-text: 15 23 42;
-    --df-text-2: 71 85 105;
-    --df-text-3: 148 163 184;
+    --df-border: 231 229 221;
+    --df-text: 23 23 37;
+    --df-text-2: 91 88 105;
+    --df-text-3: 156 152 168;
 
-    --background: 248 250 252;
-    --foreground: 15 23 42;
+    --df-accent: 79 70 229;
+    --df-accent-hover: 99 102 241;
+
+    --background: 250 249 246;
+    --foreground: 23 23 37;
     --card: 255 255 255;
-    --card-foreground: 15 23 42;
-    --border: 226 232 240;
-    --input: 241 245 249;
+    --card-foreground: 23 23 37;
+    --popover: 255 255 255;
+    --popover-foreground: 23 23 37;
+    --primary: 79 70 229;
+    --primary-foreground: 255 255 255;
+    --secondary: 243 242 237;
+    --secondary-foreground: 23 23 37;
+    --muted: 243 242 237;
+    --muted-foreground: 91 88 105;
+    --accent: 243 242 237;
+    --accent-foreground: 23 23 37;
+    --border: 231 229 221;
+    --input: 243 242 237;
+    --ring: 79 70 229;
   }
 
   * {

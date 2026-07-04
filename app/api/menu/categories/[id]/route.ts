@@ -24,7 +24,7 @@ export async function PATCH(
 
     const category = await prisma.category.update({
       where: { id, tenantId: session.tenantId },
-      data: parsed.data,
+      data: { ...parsed.data, updatedById: session.userId },
     })
 
     return NextResponse.json({ category })
@@ -43,7 +43,7 @@ export async function DELETE(
 
     await prisma.category.updateMany({
       where: { id, tenantId: session.tenantId },
-      data: { isActive: false },
+      data: { isActive: false, updatedById: session.userId },
     })
 
     return NextResponse.json({ success: true })

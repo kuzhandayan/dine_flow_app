@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Users, Loader2, Bell } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { AnnouncementCreateModal } from '@/components/announcements/AnnouncementCreateModal'
-import { toast } from '@/hooks/useToast'
+import { useToast } from '@/components/providers/ToastProvider'
 import type { AnnouncementAdminView } from '@/types/announcement'
 
 interface AdminAnnouncementsResponse {
@@ -19,6 +19,7 @@ interface TenantsResponse {
 export default function AdminAnnouncementsPage(): React.JSX.Element {
   const [showCreate, setShowCreate] = useState(false)
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   const { data, isLoading } = useQuery<AdminAnnouncementsResponse>({
     queryKey: ['admin-announcements'],

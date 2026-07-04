@@ -31,7 +31,12 @@ export async function POST(req: Request): Promise<NextResponse> {
       return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 })
     }
     const table = await prisma.restaurantTable.create({
-      data: { tenantId: session.tenantId, ...parsed.data },
+      data: {
+        tenantId: session.tenantId,
+        ...parsed.data,
+        createdById: session.userId,
+        updatedById: session.userId,
+      },
     })
     return NextResponse.json({ table }, { status: 201 })
   } catch (err) {

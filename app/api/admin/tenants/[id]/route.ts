@@ -15,7 +15,7 @@ const updateSchema = z.object({
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   try {
-    await requireRole(['SUPER_ADMIN'])
+    const session = await requireRole(['SUPER_ADMIN'])
     const { id } = await params
     const body: unknown = await req.json()
     const parsed = updateSchema.safeParse(body)
@@ -30,13 +30,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: {
           ...(isActive !== undefined ? { isActive } : {}),
           ...(isSuspended !== undefined ? { isSuspended } : {}),
+          updatedById: session.userId,
         },
       })
     }
 
     // Update subscription
     if (subscription) {
-      const updateData: Record<string, unknown> = {}
+      const updateData: Record<string, unknown> = { updatedById: session.userId }
       if (subscription.type !== undefined) updateData['type'] = subscription.type
       if (subscription.status !== undefined) updateData['status'] = subscription.status
       if (subscription.endDate !== undefined) {
@@ -50,6 +51,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           type: subscription.type ?? 'LIFETIME',
           status: subscription.status ?? 'ACTIVE',
           endDate: subscription.endDate ? new Date(subscription.endDate) : null,
+          createdById: session.userId,
+          updatedById: session.userId,
         },
         update: updateData,
       })

@@ -12,7 +12,7 @@ export async function GET(
     const { id } = await params
 
     const order = await prisma.order.findFirst({
-      where: { id, tenantId: session.tenantId },
+      where: { id, tenantId: session.tenantId, isActive: true },
       include: {
         customer: true,
         items: true,
@@ -60,12 +60,32 @@ export async function PATCH(
       where: { id, tenantId: session.tenantId },
       data: {
         ...update,
+        updatedById: session.userId,
         ...(update.status === 'COMPLETED' ? { completedAt: now } : {}),
         ...(update.paymentStatus === 'PAID' ? { paidAt: now } : {}),
       },
     })
 
     return NextResponse.json({ order })
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Error' }, { status: 400 })
+  }
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  try {
+    const session = await requireAuth()
+    const { id } = await params
+
+    await prisma.order.updateMany({
+      where: { id, tenantId: session.tenantId },
+      data: { isActive: false },
+    })
+
+    return NextResponse.json({ success: true })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Error' }, { status: 400 })
   }

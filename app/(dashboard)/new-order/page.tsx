@@ -6,7 +6,7 @@ import {
   UtensilsCrossed, Package, Truck, Search, Plus, Minus, Trash2,
   ChevronRight, ChevronLeft, Users, ShoppingCart, Check, Loader2,
 } from 'lucide-react'
-import { toast } from '@/hooks/useToast'
+import { useToast } from '@/components/providers/ToastProvider'
 import { useCurrency } from '@/hooks/useCurrency'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,6 +35,7 @@ const STEPS: Step[] = ['type', 'customer', 'menu', 'confirm']
 export default function NewOrderPage(): React.JSX.Element {
   const router = useRouter()
   const { format: fmt } = useCurrency()
+  const toast = useToast()
   const [step, setStep] = useState<Step>('type')
 
   // Step 1
@@ -68,10 +69,14 @@ export default function NewOrderPage(): React.JSX.Element {
   useEffect(() => {
     setLoadingTables(true)
     fetch('/api/tables')
-      .then((r) => r.json())
-      .then((d: { tables: Table[] }) => setTables(d.tables.filter((t) => t.isActive)))
-      .catch(() => {})
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to load tables')
+        return r.json() as Promise<{ tables: Table[] }>
+      })
+      .then((d) => setTables(d.tables.filter((t) => t.isActive)))
+      .catch(() => toast.error('Failed to load tables'))
       .finally(() => setLoadingTables(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Load menu when reaching step 3
@@ -79,13 +84,17 @@ export default function NewOrderPage(): React.JSX.Element {
     if (step !== 'menu' || categories.length > 0) return
     setLoadingMenu(true)
     fetch('/api/menu')
-      .then((r) => r.json())
-      .then((d: { categories: Category[] }) => {
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to load menu')
+        return r.json() as Promise<{ categories: Category[] }>
+      })
+      .then((d) => {
         setCategories(d.categories)
         if (d.categories[0]) setActiveCategory(d.categories[0].id)
       })
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load menu'))
       .finally(() => setLoadingMenu(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, categories.length])
 
   // Customer search debounce
@@ -94,12 +103,16 @@ export default function NewOrderPage(): React.JSX.Element {
     const t = setTimeout(() => {
       setSearchingCustomers(true)
       fetch(`/api/customers?q=${encodeURIComponent(customerQuery)}`)
-        .then((r) => r.json())
-        .then((d: { customers: Customer[] }) => setCustomers(d.customers))
-        .catch(() => {})
+        .then((r) => {
+          if (!r.ok) throw new Error('Customer search failed')
+          return r.json() as Promise<{ customers: Customer[] }>
+        })
+        .then((d) => setCustomers(d.customers))
+        .catch(() => toast.error('Customer search failed'))
         .finally(() => setSearchingCustomers(false))
     }, 300)
     return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerQuery])
 
   // ── Cart helpers ────────────────────────────────────────────────────────────

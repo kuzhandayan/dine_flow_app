@@ -3,6 +3,8 @@
 > **This file is for future reference only.**
 > Do NOT act on this during Phase 1 or Phase 2.
 > Come back to this when you have 50+ restaurants and want full control + cost savings.
+>
+> **Status check:** nothing in this file has been started. The app currently deploys to Vercel via GitHub Actions (see `CICD.md`) and runs entirely on Supabase Postgres (see `STACK.md`). No EC2/RDS/S3/Nginx/PM2 exists anywhere in this repo today — everything below is still purely a future plan.
 
 ---
 

@@ -18,6 +18,10 @@ export async function requireAuth(): Promise<AuthSession> {
     throw new AuthError('Unauthorized', 401)
   }
 
+  if (session.error) {
+    throw new AuthError(session.error, 401)
+  }
+
   return {
     userId: session.user.id,
     tenantId: session.user.tenantId,

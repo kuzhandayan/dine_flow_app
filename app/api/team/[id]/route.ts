@@ -47,6 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (role !== undefined) updateData['role'] = role as UserRole
     if (password !== undefined) updateData['password'] = await bcrypt.hash(password, 12)
     if (permissions !== undefined) updateData['permissions'] = permissions
+    updateData['updatedById'] = session.userId
 
     const updated = await prisma.user.update({
       where: { id },
@@ -72,7 +73,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
     if (target.role === 'OWNER') return NextResponse.json({ error: 'Cannot delete the owner account' }, { status: 403 })
 
-    await prisma.user.update({ where: { id }, data: { isActive: false } })
+    await prisma.user.update({ where: { id }, data: { isActive: false, updatedById: session.userId } })
     return NextResponse.json({ success: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.statusCode })

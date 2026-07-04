@@ -19,12 +19,12 @@ export async function GET(
     if (!isAdmin) {
       await prisma.directMessage.updateMany({
         where: { tenantId, fromAdmin: true, isRead: false },
-        data: { isRead: true },
+        data: { isRead: true, updatedById: session.userId },
       })
     } else {
       await prisma.directMessage.updateMany({
         where: { tenantId, fromAdmin: false, isRead: false },
-        data: { isRead: true },
+        data: { isRead: true, updatedById: session.userId },
       })
     }
 
@@ -66,6 +66,8 @@ export async function POST(
         fromAdmin: isAdmin,
         senderName: isAdmin ? 'Admin' : session.tenantName,
         isRead: false,
+        createdById: session.userId,
+        updatedById: session.userId,
       },
     })
 

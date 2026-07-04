@@ -50,8 +50,8 @@ export async function PUT(req: Request): Promise<NextResponse> {
     }
     const config = await prisma.gSTConfig.upsert({
       where: { tenantId: session.tenantId },
-      create: { tenantId: session.tenantId, ...data },
-      update: data,
+      create: { tenantId: session.tenantId, ...data, createdById: session.userId, updatedById: session.userId },
+      update: { ...data, updatedById: session.userId },
     })
     return NextResponse.json({ config })
   } catch (err) {

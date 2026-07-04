@@ -81,6 +81,8 @@ export async function POST(req: Request): Promise<NextResponse> {
         name: parsed.data.name,
         phone: parsed.data.phone,
         email: parsed.data.email || null,
+        createdById: session.userId,
+        updatedById: session.userId,
       },
     })
     return NextResponse.json({ customer }, { status: 201 })

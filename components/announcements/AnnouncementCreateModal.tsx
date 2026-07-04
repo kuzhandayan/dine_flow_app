@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { X, Loader2 } from 'lucide-react'
-import { toast } from '@/hooks/useToast'
+import { useToast } from '@/components/providers/ToastProvider'
 import { useQueryClient } from '@tanstack/react-query'
 
 interface Tenant {
@@ -23,6 +23,7 @@ export function AnnouncementCreateModal({ tenants, onClose }: Props): React.JSX.
   const [selectedTenants, setSelectedTenants] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault()

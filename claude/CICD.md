@@ -1,330 +1,86 @@
-# CICD.md — GitHub Actions CI/CD Setup
+# CICD.md — Deployment & Containerization
 
-## Overview
+> This used to describe a 3-workflow, multi-branch (`dev`/`staging`/`main`) pipeline with type-check/lint/build gates and a `prisma migrate deploy` step. None of that exists. There is exactly **one** GitHub Actions workflow, and it doesn't run type-check/lint/migrate at all.
 
-```
-Developer pushes code
-        ↓
-GitHub Actions runs CI (type check + lint + build)
-        ↓
-If passes → Vercel deploys automatically
-        ↓
-Production live in ~60 seconds
-```
-
----
-
-## Branch Strategy
-
-```
-main        → Production (live at yourdomain.com)
-staging     → Staging (test before going live)
-dev         → Daily development work
-feature/*   → Individual features (e.g. feature/inventory-crud)
-fix/*       → Bug fixes
-```
-
-**Rules:**
-- Never push directly to `main`
-- All features merge into `dev` first
-- `dev` → `staging` for testing
-- `staging` → `main` for production release
-
----
-
-## File 1: `.github/workflows/ci.yml`
+## GitHub Actions — `.github/workflows/deploy.yml`
 
 ```yaml
-name: CI
+name: Deploy to Vercel
 
 on:
   push:
-    branches: [dev, staging]
-  pull_request:
-    branches: [main, staging]
-
-jobs:
-  ci:
-    name: Type Check + Lint + Build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      - name: Type check
-        run: npm run type-check
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Build
-        run: npm run build
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
-          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
-          NEXT_PUBLIC_APP_NAME: "DineFlow"
-```
-
----
-
-## File 2: `.github/workflows/deploy.yml`
-
-```yaml
-name: Deploy to Production
-
-on:
-  push:
-    branches: [main]
+    branches:
+      - live
 
 jobs:
   deploy:
-    name: Deploy
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      - name: Type check
-        run: npm run type-check
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Run database migrations
-        run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      - name: Build
-        run: npm run build
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
-          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
-          NEXT_PUBLIC_APP_NAME: "DineFlow"
-
-      # Vercel handles the actual deploy via GitHub integration
-      # Just ensure build passes here
-      - name: Deploy success
-        run: echo "✅ Build passed — Vercel will deploy automatically"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm install -g vercel@latest
+      - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
 ```
 
----
+- **Production branch is `live`**, not `main`. Pushing to `live` triggers a deploy.
+- **Vercel CLI-driven prebuilt deploy**, not Vercel's GitHub-integration auto-deploy: `vercel pull` fetches env/project config, `vercel build --prod` builds inside the Action runner, `vercel deploy --prebuilt --prod` ships that exact build artifact. Build failures surface as a failed `vercel build` step — there's no separate CI gate before that.
+- Required GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. App secrets (`DATABASE_URL`, `NEXTAUTH_SECRET`, etc.) are **not** duplicated as GitHub secrets — they live in Vercel's own environment variable store and get pulled in via `vercel pull`.
+- **No staging environment or workflow exists.** No `ci.yml` runs type-check/lint on pull requests. No `prisma migrate deploy` step runs anywhere in CI — migrations against the production Supabase DB are presumably run manually (`npx prisma migrate deploy`) or via Vercel's build hooks, not verified as automated.
 
-## File 3: `.github/workflows/staging.yml`
+## Docker
 
+Two separate images, two separate compose files — dev and prod are not the same container.
+
+### `Dockerfile.dev` — development (hot reload)
+Single-stage Node 22 alpine. Copies `package*.json` + `prisma.config.ts` + `prisma/` *before* `npm install` (so `postinstall`'s `prisma generate` has the schema available), then `npm install`, then the rest of the source (overridden by the bind mount at runtime anyway). `EXPOSE 3001`, `ENV PORT=3001`, `CMD ["npm", "run", "dev"]`.
+
+### `docker-compose.yml` — dev orchestration
 ```yaml
-name: Deploy to Staging
+services:
+  app:
+    build: { context: ., dockerfile: Dockerfile.dev }
+    container_name: dineflow-dev
+    ports: ["3001:3001"]
+    volumes:
+      - .:/app                 # bind-mount source for hot reload
+      - /app/node_modules       # preserve container's node_modules
+      - /app/.next
+    env_file: [.env.local]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/api/health"]
+```
+Run with `docker compose up`. The app is reachable at `http://localhost:3001` in this mode (not 3000).
 
-on:
-  push:
-    branches: [staging]
+### `Dockerfile` — production, 3-stage build
+1. `deps` — `npm ci --frozen-lockfile`.
+2. `builder` — copies source, runs `npx prisma generate` (no DB connection needed for that), `npm run build` (produces `.next/standalone` because `next.config.ts` sets `output: 'standalone'`).
+3. `runner` — minimal alpine image, runs as non-root `nextjs` user, copies only `.next/standalone`, `.next/static`, `public/`, `prisma/`, and the generated `node_modules/.prisma` + `node_modules/@prisma` — not the full `node_modules`. `EXPOSE 3000`, `ENV PORT=3000`, `CMD ["node", "server.js"]`.
 
-jobs:
-  staging:
-    name: Staging Deploy
-    runs-on: ubuntu-latest
+Secrets are never baked into any layer — always injected at `docker run`/`docker compose` time via `--env-file` or `-e`.
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-        env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-
-      - name: Type check
-        run: npm run type-check
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Build
-        run: npm run build
-        env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL: ${{ secrets.STAGING_URL }}
-          NEXT_PUBLIC_APP_URL: ${{ secrets.STAGING_URL }}
-          NEXT_PUBLIC_APP_NAME: "DineFlow (Staging)"
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+### `docker-compose.prod.yml` — prod orchestration
+```yaml
+services:
+  app:
+    build: { context: ., dockerfile: Dockerfile }
+    container_name: dineflow-prod
+    ports: ["3000:3000"]
+    env_file: [.env.local]
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
 ```
 
----
+Both healthchecks hit the real `GET /api/health` route (`{status: 'ok', timestamp}`), which exists and is public.
 
-## GitHub Secrets to Set
+## `next.config.ts`
 
-Go to: GitHub repo → Settings → Secrets and variables → Actions → New repository secret
-
-```
-DATABASE_URL          postgresql://...  (Supabase connection string)
-DIRECT_URL            postgresql://...  (Supabase direct connection)
-STAGING_DATABASE_URL  postgresql://...  (separate staging DB)
-NEXTAUTH_SECRET       (generate: openssl rand -base64 32)
-NEXTAUTH_URL          https://yourdomain.com
-STAGING_URL           https://staging.yourdomain.com
-RESEND_API_KEY        re_xxxxxxxxxxxx
-RESEND_FROM_EMAIL     noreply@yourdomain.com
-NEXT_PUBLIC_APP_URL   https://yourdomain.com
-```
-
----
-
-## Vercel Setup
-
-### Connect GitHub repo to Vercel
-1. Go to vercel.com → New Project
-2. Import your GitHub repo
-3. Framework: Next.js (auto-detected)
-4. Add all environment variables in Vercel dashboard
-5. Enable "Deploy on push to main"
-
-### Vercel Environment Variables
-Add these in Vercel dashboard → Project → Settings → Environment Variables:
-
-```
-DATABASE_URL          → Production + Preview
-DIRECT_URL            → Production + Preview
-NEXTAUTH_SECRET       → Production + Preview
-NEXTAUTH_URL          → Production only (your real domain)
-RESEND_API_KEY        → Production + Preview
-RESEND_FROM_EMAIL     → Production + Preview
-NEXT_PUBLIC_APP_URL   → Production only
-NEXT_PUBLIC_APP_NAME  → DineFlow
-```
-
----
-
-## .gitignore
-
-```gitignore
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Next.js
-.next/
-out/
-build/
-
-# Environment files — NEVER COMMIT THESE
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Prisma
-prisma/*.db
-prisma/*.db-journal
-
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
-```
-
----
-
-## Development Workflow
-
-```bash
-# Start new feature
-git checkout dev
-git pull origin dev
-git checkout -b feature/menu-crud
-
-# Work on feature...
-git add .
-git commit -m "feat: add menu item CRUD with GST rates"
-
-# Push and create PR to dev
-git push origin feature/menu-crud
-# Create PR on GitHub: feature/menu-crud → dev
-
-# After PR approved and merged to dev:
-# Create PR: dev → staging (for testing)
-# Create PR: staging → main (for production)
-```
-
-## Commit Message Convention
-
-```
-feat:     new feature
-fix:      bug fix
-chore:    maintenance, deps update
-refactor: code restructure, no behavior change
-docs:     documentation
-style:    formatting, no logic change
-test:     adding tests
-
-Examples:
-feat: add GST breakup to order billing
-fix: tenant isolation missing in inventory API
-chore: upgrade next-auth to v5.0.0-beta.22
-refactor: extract GST calculation to lib/gst.ts
+```ts
+{
+  output: 'standalone',   // required for the Docker multi-stage build to produce a minimal runner image
+  images: { remotePatterns: [{ protocol: 'https', hostname: '**.supabase.co' }] },  // tenant logos in Supabase storage
+}
 ```

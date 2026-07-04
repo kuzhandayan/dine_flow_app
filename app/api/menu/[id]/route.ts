@@ -29,7 +29,7 @@ export async function PATCH(
 
     const menuItem = await prisma.menuItem.update({
       where: { id, tenantId: session.tenantId },
-      data: parsed.data,
+      data: { ...parsed.data, updatedById: session.userId },
     })
 
     return NextResponse.json({ menuItem })
@@ -48,7 +48,7 @@ export async function DELETE(
 
     await prisma.menuItem.updateMany({
       where: { id, tenantId: session.tenantId },
-      data: { isActive: false },
+      data: { isActive: false, updatedById: session.userId },
     })
 
     return NextResponse.json({ success: true })

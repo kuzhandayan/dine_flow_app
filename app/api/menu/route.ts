@@ -54,6 +54,8 @@ export async function POST(req: Request): Promise<NextResponse> {
         categoryId: categoryId ?? null,
         description: description ?? null,
         costPrice: costPrice ?? null,
+        createdById: session.userId,
+        updatedById: session.userId,
       },
     })
 

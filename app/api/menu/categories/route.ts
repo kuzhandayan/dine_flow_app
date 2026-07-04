@@ -35,6 +35,8 @@ export async function POST(req: Request): Promise<NextResponse> {
         tenantId: session.tenantId,
         name: parsed.data.name,
         sortOrder: parsed.data.sortOrder,
+        createdById: session.userId,
+        updatedById: session.userId,
       },
     })
 

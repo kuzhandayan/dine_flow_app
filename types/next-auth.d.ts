@@ -12,6 +12,7 @@ declare module 'next-auth' {
       currency: string
       permissions: string[]
     } & DefaultSession['user']
+    error?: 'AccountDisabled' | 'TenantSuspended'
   }
 
   interface User {
@@ -33,5 +34,7 @@ declare module 'next-auth/jwt' {
     tenantSlug: string
     currency: string
     permissions: string[]
+    lastCheckedAt?: number
+    error?: 'AccountDisabled' | 'TenantSuspended'
   }
 }

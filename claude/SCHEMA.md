@@ -1,6 +1,15 @@
 # SCHEMA.md — Database Schema (Prisma)
 
-## File: `prisma/schema.prisma`
+> This file mirrors `prisma/schema.prisma`. If they ever disagree, `prisma/schema.prisma` is the source of truth — re-copy it here rather than trusting this doc.
+
+## Conventions — apply to every model
+
+1. **Primary keys are `uuid(7)`, not `cuid()`.** Every `id` field is `String @id @default(uuid(7)) @db.Uuid` — a time-sortable UUID stored as a native Postgres `uuid` column. Every foreign key column pointing at another model's `id` is typed `String @db.Uuid` (or `String? @db.Uuid` if optional) to match. The one exception is `Invite.token`, which is intentionally a separate opaque, URL-safe value and still uses `@default(cuid())` — it's a share-link token, not a row identifier.
+2. **Audit trail: `createdById` / `updatedById`.** Every business model (all of them except `Session` and `VerificationToken`) has nullable `createdById String? @db.Uuid` / `updatedById String? @db.Uuid`, each with its own relation to `User` (`onDelete: SetNull`, so deleting a user never cascades into deleting the records they touched). Every API route that creates or updates a row is expected to set these from the acting session's `userId` (see `AUTH.md` / `API.md`). `User` itself carries both fields too (self-referential — tracks which admin/owner created or last edited a staff account).
+3. **Soft delete: `isActive`.** Present on `Tenant, User, Customer, Category, MenuItem, InventoryItem, Order, RestaurantTable, Announcement` (all default `true`). Every `DELETE` route on these resources sets `isActive: false` instead of removing the row; every `GET`/list route filters `isActive: true`. Models without `isActive` (`Session, VerificationToken, Invite, RestockLog, OrderItem, Payment, GSTConfig, Subscription, SubscriptionPayment, AnnouncementTenant, AnnouncementRead, CommunityMessage, DirectMessage`) are either child records removed via cascade from their parent, or aren't soft-deleted at all. `MenuItem.isAvailable` is a separate business toggle (86-ing an item) distinct from `isActive` (soft-delete).
+4. **Multi-tenant isolation.** Every tenant-scoped model has a `tenantId String @db.Uuid` column and an index on it (or a compound index/unique starting with it). Every query in `app/api/**` must filter on `tenantId` from the session — see `AUTH.md`.
+
+## Full schema (`prisma/schema.prisma`)
 
 ```prisma
 generator client {
@@ -8,9 +17,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 // ─────────────────────────────────────────────
@@ -18,35 +25,41 @@ datasource db {
 // ─────────────────────────────────────────────
 
 model Tenant {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid(7)) @db.Uuid
   name        String
-  slug        String   @unique  // used in URLs
-  gstin       String?           // GST registration number
-  gstName     String?           // Legal name on GST certificate
+  slug        String   @unique
+  gstin       String?
+  gstName     String?
   address     String?
   phone       String?
   email       String?
-  logo        String?           // URL to logo image
+  logo        String?
   currency    String   @default("INR")
   timezone    String   @default("Asia/Kolkata")
   isActive    Boolean  @default(true)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
-  users       User[]
-  customers   Customer[]
-  orders      Order[]
-  menuItems   MenuItem[]
-  categories  Category[]
-  inventory   InventoryItem[]
-  invites     Invite[]
-  gstConfig   GSTConfig?
+  createdBy User? @relation("TenantCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("TenantUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  // Subscription relation
-  subscription    Subscription?
+  users                User[]                @relation("UserTenant")
+  customers            Customer[]
+  orders               Order[]
+  menuItems            MenuItem[]
+  categories           Category[]
+  inventory            InventoryItem[]
+  invites              Invite[]
+  gstConfig            GSTConfig?
+  subscription         Subscription?
+  announcementTargets  AnnouncementTenant[]
+  announcementReads    AnnouncementRead[]
+  communityMessages    CommunityMessage[]
+  directMessages       DirectMessage[]
+  tables               RestaurantTable[]
 
-  // Admin controls
   isSuspended     Boolean   @default(false)
   suspendedAt     DateTime?
   suspendedReason String?
@@ -59,32 +72,77 @@ model Tenant {
 // ─────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  tenantId      String
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @db.Uuid
   name          String
   email         String
   emailVerified DateTime?
-  password      String               // bcrypt hashed
+  password      String
   role          UserRole  @default(WAITER)
+  permissions   String[]  @default([])
   isActive      Boolean   @default(true)
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // Relations
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sessions      Session[]
-  orders        Order[]   @relation("OrderCreatedBy")
+  tenant    Tenant @relation("UserTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  mustChangePassword Boolean  @default(false)  // true when admin creates account
+  // Reverse "who created/updated X" relations — one pair per audited model.
+  createdUsers User[] @relation("UserCreatedBy")
+  updatedUsers User[] @relation("UserUpdatedBy")
+  createdTenants Tenant[] @relation("TenantCreatedBy")
+  updatedTenants Tenant[] @relation("TenantUpdatedBy")
+  createdInvites Invite[] @relation("InviteCreatedBy")
+  updatedInvites Invite[] @relation("InviteUpdatedBy")
+  createdCustomers Customer[] @relation("CustomerCreatedBy")
+  updatedCustomers Customer[] @relation("CustomerUpdatedBy")
+  createdCategories Category[] @relation("CategoryCreatedBy")
+  updatedCategories Category[] @relation("CategoryUpdatedBy")
+  createdMenuItems MenuItem[] @relation("MenuItemCreatedBy")
+  updatedMenuItems MenuItem[] @relation("MenuItemUpdatedBy")
+  createdInventoryItems InventoryItem[] @relation("InventoryItemCreatedBy")
+  updatedInventoryItems InventoryItem[] @relation("InventoryItemUpdatedBy")
+  createdRestockLogs RestockLog[] @relation("RestockLogCreatedBy")
+  updatedRestockLogs RestockLog[] @relation("RestockLogUpdatedBy")
+  createdOrders Order[] @relation("OrderCreatedBy")
+  updatedOrders Order[] @relation("OrderUpdatedBy")
+  createdOrderItems OrderItem[] @relation("OrderItemCreatedBy")
+  updatedOrderItems OrderItem[] @relation("OrderItemUpdatedBy")
+  createdPayments Payment[] @relation("PaymentCreatedBy")
+  updatedPayments Payment[] @relation("PaymentUpdatedBy")
+  createdGstConfigs GSTConfig[] @relation("GSTConfigCreatedBy")
+  updatedGstConfigs GSTConfig[] @relation("GSTConfigUpdatedBy")
+  createdSubscriptions Subscription[] @relation("SubscriptionCreatedBy")
+  updatedSubscriptions Subscription[] @relation("SubscriptionUpdatedBy")
+  createdSubscriptionPayments SubscriptionPayment[] @relation("SubscriptionPaymentCreatedBy")
+  updatedSubscriptionPayments SubscriptionPayment[] @relation("SubscriptionPaymentUpdatedBy")
+  createdRestaurantTables RestaurantTable[] @relation("RestaurantTableCreatedBy")
+  updatedRestaurantTables RestaurantTable[] @relation("RestaurantTableUpdatedBy")
+  createdAnnouncements Announcement[] @relation("AnnouncementCreatedBy")
+  updatedAnnouncements Announcement[] @relation("AnnouncementUpdatedBy")
+  createdAnnouncementTenants AnnouncementTenant[] @relation("AnnouncementTenantCreatedBy")
+  updatedAnnouncementTenants AnnouncementTenant[] @relation("AnnouncementTenantUpdatedBy")
+  createdAnnouncementReads AnnouncementRead[] @relation("AnnouncementReadCreatedBy")
+  updatedAnnouncementReads AnnouncementRead[] @relation("AnnouncementReadUpdatedBy")
+  createdCommunityMessages CommunityMessage[] @relation("CommunityMessageCreatedBy")
+  updatedCommunityMessages CommunityMessage[] @relation("CommunityMessageUpdatedBy")
+  createdDirectMessages DirectMessage[] @relation("DirectMessageCreatedBy")
+  updatedDirectMessages DirectMessage[] @relation("DirectMessageUpdatedBy")
+
+  sessions           Session[]
+  mustChangePassword Boolean   @default(false)
 
   @@unique([tenantId, email])
   @@map("users")
 }
 
 model Session {
-  id           String   @id @default(cuid())
+  id           String   @id @default(uuid(7)) @db.Uuid
   sessionToken String   @unique
-  userId       String
+  userId       String   @db.Uuid
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -101,26 +159,36 @@ model VerificationToken {
 }
 
 model Invite {
-  id        String      @id @default(cuid())
-  tenantId  String
-  email     String
-  role      UserRole    @default(WAITER)
-  token     String      @unique @default(cuid())
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime    @default(now())
+  id          String    @id @default(uuid(7)) @db.Uuid
+  tenantId    String    @db.Uuid
+  email       String
+  role        UserRole  @default(WAITER)
+  token       String    @unique @default(cuid())
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("InviteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("InviteUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("invites")
 }
+```
 
+> **Note:** the `Invite` model exists in the schema but there is currently **no API route** that creates, validates, or accepts an invite (`app/api/invite/**` does not exist). Staff onboarding today happens via `POST /api/team` (an owner/manager directly creates a staff account with a password), not an email-invite flow. Treat `Invite` as schema that's ahead of the feature — see `FEATURES.md`.
+
+```prisma
 enum UserRole {
-  SUPER_ADMIN   // platform owner (you)
-  OWNER         // restaurant owner
-  MANAGER       // manager - most access
-  WAITER        // take orders, update status
-  KITCHEN       // view orders, update cooking status
+  SUPER_ADMIN
+  OWNER
+  MANAGER
+  WAITER
+  KITCHEN
+  CASHIER
 }
 
 // ─────────────────────────────────────────────
@@ -128,43 +196,55 @@ enum UserRole {
 // ─────────────────────────────────────────────
 
 model Customer {
-  id          String   @id @default(cuid())
-  tenantId    String
+  id          String    @id @default(uuid(7)) @db.Uuid
+  tenantId    String    @db.Uuid
   name        String
   phone       String
   email       String?
   address     String?
   notes       String?
-  totalOrders Int      @default(0)
-  totalSpent  Float    @default(0)
+  totalOrders Int       @default(0)
+  totalSpent  Float     @default(0)
   lastVisitAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive    Boolean   @default(true)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  // Relations
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  orders      Order[]
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  orders    Order[]
 
   @@unique([tenantId, phone])
   @@index([tenantId])
   @@map("customers")
 }
+```
 
+> `totalOrders`/`totalSpent`/`lastVisitAt` columns exist but are **not written to** by any current route — `GET /api/customers` and `GET /api/customers/[id]` compute these live via a `groupBy` on `PAID` orders instead of reading these columns. They're effectively unused denormalized fields right now.
+
+```prisma
 // ─────────────────────────────────────────────
 // MENU
 // ─────────────────────────────────────────────
 
 model Category {
-  id          String     @id @default(cuid())
-  tenantId    String
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @db.Uuid
   name        String
-  sortOrder   Int        @default(0)
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  menuItems   MenuItem[]
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?      @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?      @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  menuItems MenuItem[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -172,26 +252,30 @@ model Category {
 }
 
 model MenuItem {
-  id              String         @id @default(cuid())
-  tenantId        String
-  categoryId      String?
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @db.Uuid
+  categoryId      String?  @db.Uuid
   name            String
   description     String?
-  price           Float          // base price before GST
-  costPrice       Float?         // cost price for profit calculation
-  gstRate         Float          @default(5)  // GST % applied to this item
-  isAvailable     Boolean        @default(true)
-  isVeg           Boolean        @default(true)
-  sortOrder       Int            @default(0)
-  inventoryItemId String?        // linked inventory item
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  price           Float
+  costPrice       Float?
+  gstRate         Float    @default(5)
+  isAvailable     Boolean  @default(true)
+  isActive        Boolean  @default(true)
+  isVeg           Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  inventoryItemId String?  @db.Uuid
+  createdById     String?  @db.Uuid
+  updatedById     String?  @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  // Relations
-  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category        Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
-  orderItems      OrderItem[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  createdBy     User?          @relation("MenuItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?          @relation("MenuItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  orderItems    OrderItem[]
 
   @@index([tenantId])
   @@index([tenantId, categoryId])
@@ -203,80 +287,92 @@ model MenuItem {
 // ─────────────────────────────────────────────
 
 model InventoryItem {
-  id              String         @id @default(cuid())
-  tenantId        String
+  id              String    @id @default(uuid(7)) @db.Uuid
+  tenantId        String    @db.Uuid
   name            String
-  unit            String         // kg, litre, pcs, dozen, etc.
-  quantity        Float          @default(0)
-  minStockLevel   Float          @default(0)
-  costPerUnit     Float          @default(0)
+  unit            String
+  quantity        Float     @default(0)
+  minStockLevel   Float     @default(0)
+  costPerUnit     Float     @default(0)
   supplier        String?
   lastRestockedAt DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  isActive        Boolean   @default(true)
+  createdById     String?   @db.Uuid
+  updatedById     String?   @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  // Relations
-  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  menuItems       MenuItem[]
-  restockLogs     RestockLog[]
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy   User?        @relation("InventoryItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?        @relation("InventoryItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  menuItems   MenuItem[]
+  restockLogs RestockLog[]
 
   @@index([tenantId])
   @@map("inventory_items")
 }
 
 model RestockLog {
-  id              String        @id @default(cuid())
-  inventoryItemId String
+  id              String   @id @default(uuid(7)) @db.Uuid
+  inventoryItemId String   @db.Uuid
   quantityAdded   Float
   costPerUnit     Float?
   supplier        String?
   notes           String?
-  createdAt       DateTime      @default(now())
+  createdById     String?  @db.Uuid
+  updatedById     String?  @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  createdBy     User?         @relation("RestockLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?         @relation("RestockLogUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("restock_logs")
 }
+```
 
+> `RestockLog` is read by `GET /api/reports` (as `inventoryExpenses`), but **no route currently creates a `RestockLog` row** — there's no "restock" action wired into `PATCH /api/inventory/[id]`. The model exists ahead of the feature.
+
+```prisma
 // ─────────────────────────────────────────────
 // ORDERS
 // ─────────────────────────────────────────────
 
 model Order {
-  id              String        @id @default(cuid())
-  tenantId        String
-  customerId      String
-  createdById     String?       // which staff member created this order
-  orderNumber     String        // human-readable: ORD-000001
-  type            OrderType     @default(DINE_IN)
-  tableNumber     String?
-  status          OrderStatus   @default(PENDING)
-  notes           String?
+  id          String      @id @default(uuid(7)) @db.Uuid
+  tenantId    String      @db.Uuid
+  customerId  String      @db.Uuid
+  createdById String?     @db.Uuid
+  updatedById String?     @db.Uuid
+  orderNumber String
+  type        OrderType   @default(DINE_IN)
+  tableNumber String?
+  status      OrderStatus @default(PENDING)
+  notes       String?
+  isActive    Boolean     @default(true)
 
-  // Billing
-  subtotal        Float         // base amount before GST
-  totalGST        Float         // total GST amount
-  totalCGST       Float         // CGST portion
-  totalSGST       Float         // SGST portion
-  grandTotal      Float         // subtotal + totalGST
+  subtotal   Float
+  totalGST   Float
+  totalCGST  Float
+  totalSGST  Float
+  grandTotal Float
 
-  // Payment
-  paymentStatus   PaymentStatus @default(UNPAID)
-  paymentMethod   PaymentMethod?
-  paidAmount      Float         @default(0)
-  paidAt          DateTime?
+  paymentStatus PaymentStatus  @default(UNPAID)
+  paymentMethod PaymentMethod?
+  paidAmount    Float          @default(0)
+  paidAt        DateTime?
 
-  // Timestamps
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  completedAt     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
 
-  // Relations
-  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer        Customer      @relation(fields: [customerId], references: [id])
-  createdBy       User?         @relation("OrderCreatedBy", fields: [createdById], references: [id])
-  items           OrderItem[]
-  payments        Payment[]
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer  Customer    @relation(fields: [customerId], references: [id])
+  createdBy User?       @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?       @relation("OrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  items     OrderItem[]
+  payments  Payment[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -286,45 +382,58 @@ model Order {
 }
 
 model OrderItem {
-  id          String   @id @default(cuid())
-  orderId     String
-  menuItemId  String
-  name        String   // snapshot at time of order
-  price       Float    // snapshot at time of order
-  gstRate     Float    // snapshot at time of order
+  id          String   @id @default(uuid(7)) @db.Uuid
+  orderId     String   @db.Uuid
+  menuItemId  String   @db.Uuid
+  name        String
+  price       Float
+  gstRate     Float
   quantity    Int
-  subtotal    Float    // price * quantity (before GST)
-  gstAmount   Float    // GST on this item
-  cgst        Float    // CGST portion
-  sgst        Float    // SGST portion
-  total       Float    // subtotal + gstAmount
+  subtotal    Float
+  gstAmount   Float
+  cgst        Float
+  sgst        Float
+  total       Float
   notes       String?
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem    MenuItem @relation(fields: [menuItemId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem @relation(fields: [menuItemId], references: [id])
+  createdBy User?    @relation("OrderItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?    @relation("OrderItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@map("order_items")
 }
+```
 
+- `OrderItem` snapshots `name/price/gstRate` from the `MenuItem` at order time — so historical orders don't change if a menu item's price is edited later.
+- GST math (`lib/gst.ts`): `gstAmount = subtotal * (gstRate / 100)`, split 50/50 into `cgst`/`sgst`, `total = subtotal + gstAmount`. Order-level totals are the sum across items. Never rounded mid-calculation.
+- `OrderType`: `DINE_IN | PARCEL | DELIVERY`. `OrderStatus`: `PENDING | IN_PROGRESS | READY | SERVED | DELIVERED | COMPLETED | CANCELLED` (`SERVED` = dine-in, `DELIVERED` = parcel/delivery). `PaymentStatus`: `UNPAID | PARTIAL | PAID | REFUNDED`. `PaymentMethod`: `CASH | CARD | UPI`.
+
+```prisma
 // ─────────────────────────────────────────────
 // PAYMENTS
 // ─────────────────────────────────────────────
 
 model Payment {
-  id            String        @id @default(cuid())
-  orderId       String
-  amount        Float
-  method        PaymentMethod
-  status        String        @default("success")
-  reference     String?       // transaction ID, UPI ref, etc.
-  // Future: Razorpay fields
-  // razorpayOrderId   String?
-  // razorpayPaymentId String?
-  // razorpaySignature String?
-  createdAt     DateTime      @default(now())
+  id          String        @id @default(uuid(7)) @db.Uuid
+  orderId     String        @db.Uuid
+  amount      Float
+  method      PaymentMethod
+  status      String        @default("success")
+  reference   String?
+  createdById String?       @db.Uuid
+  updatedById String?       @db.Uuid
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("PaymentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@map("payments")
@@ -335,92 +444,83 @@ model Payment {
 // ─────────────────────────────────────────────
 
 model GSTConfig {
-  id              String   @id @default(cuid())
-  tenantId        String   @unique
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @unique @db.Uuid
+  gstEnabled      Boolean  @default(true)
   defaultGSTRate  Float    @default(5)
   isGSTRegistered Boolean  @default(false)
   gstin           String?
   gstBusinessName String?
   gstAddress      String?
+  createdById     String?  @db.Uuid
+  updatedById     String?  @db.Uuid
+  createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("GSTConfigCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("GSTConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("gst_configs")
 }
+```
 
+```prisma
 // ─────────────────────────────────────────────
-// ENUMS
-// ─────────────────────────────────────────────
-
-enum OrderType {
-  DINE_IN
-  PARCEL
-  DELIVERY
-}
-
-enum OrderStatus {
-  PENDING       // just placed
-  IN_PROGRESS   // kitchen started
-  READY         // ready to serve/deliver
-  SERVED        // dine-in served
-  DELIVERED     // parcel delivered
-  COMPLETED     // fully done + paid
-  CANCELLED
-}
-
-enum PaymentStatus {
-  UNPAID
-  PARTIAL
-  PAID
-  REFUNDED
-}
-
-// ─────────────────────────────────────────────
-// SUBSCRIPTIONS (managed by Super Admin)
+// SUBSCRIPTIONS
 // ─────────────────────────────────────────────
 
 model Subscription {
-  id               String             @id @default(cuid())
-  tenantId         String             @unique
-  type             SubscriptionType   @default(LIFETIME)
-  status           SubscriptionStatus @default(ACTIVE)
-  startDate        DateTime           @default(now())
-  endDate          DateTime?          // null = lifetime
-  amount           Float?             // payment amount recorded by admin
-  currency         String             @default("INR")
-  notes            String?
-  lastPaymentAt    DateTime?
-  lastPaymentAmt   Float?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  id             String             @id @default(uuid(7)) @db.Uuid
+  tenantId       String             @unique @db.Uuid
+  type           SubscriptionType   @default(LIFETIME)
+  status         SubscriptionStatus @default(ACTIVE)
+  startDate      DateTime           @default(now())
+  endDate        DateTime?
+  amount         Float?
+  currency       String             @default("INR")
+  notes          String?
+  lastPaymentAt  DateTime?
+  lastPaymentAmt Float?
+  createdById    String?            @db.Uuid
+  updatedById    String?            @db.Uuid
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
-  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  payments         SubscriptionPayment[]
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?                 @relation("SubscriptionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?                 @relation("SubscriptionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  payments  SubscriptionPayment[]
 
   @@map("subscriptions")
 }
 
 model SubscriptionPayment {
-  id              String       @id @default(cuid())
-  subscriptionId  String
-  amount          Float
-  currency        String       @default("INR")
-  method          String       // cash, upi, bank_transfer, cheque
-  reference       String?      // UPI ref, cheque number, etc.
-  paidAt          DateTime     @default(now())
-  extendedUntil   DateTime?    // new end date after this payment
-  notes           String?
-  recordedBy      String       // admin user id
+  id             String    @id @default(uuid(7)) @db.Uuid
+  subscriptionId String    @db.Uuid
+  amount         Float
+  currency       String    @default("INR")
+  method         String
+  reference      String?
+  paidAt         DateTime  @default(now())
+  extendedUntil  DateTime?
+  notes          String?
+  recordedBy     String    @db.Uuid
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  createdBy    User?        @relation("SubscriptionPaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("SubscriptionPaymentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("subscription_payments")
 }
 
 enum SubscriptionType {
-  LIFETIME   // no expiry — until admin closes
-  DURATION   // fixed period, renew to extend
+  LIFETIME
+  DURATION
 }
 
 enum SubscriptionStatus {
@@ -429,198 +529,163 @@ enum SubscriptionStatus {
   SUSPENDED
   CLOSED
 }
-
-enum PaymentMethod {
-  CASH
-  CARD
-  UPI
-  // RAZORPAY  // Phase 2
-}
 ```
 
----
+> `SubscriptionPayment` exists in the schema but **no API route creates one** — there's no `/api/admin/subscriptions/*/payment` endpoint. Tenant subscription state today is managed entirely through `PATCH /api/admin/tenants/[id]`, which upserts `Subscription` directly (`type`, `status`, `endDate`) without ever touching `SubscriptionPayment`. Also: there is **no cron job or scheduled task anywhere in the repo** that auto-expires subscriptions — `status: EXPIRED` would have to be set manually today.
 
-## Prisma Client Singleton
-
-`lib/prisma.ts`:
-
-```typescript
-import { PrismaClient } from '@prisma/client'
-
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
-
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  })
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
-```
-
----
-
-## Seed File
-
-`prisma/seed.ts`:
-
-```typescript
-import { PrismaClient, UserRole } from '@prisma/client'
-import bcrypt from 'bcryptjs'
-
-const prisma = new PrismaClient()
-
-async function main(): Promise<void> {
-  // Create demo tenant
-  const tenant = await prisma.tenant.create({
-    data: {
-      name: 'Demo Restaurant',
-      slug: 'demo-restaurant',
-      gstin: '22AAAAA0000A1Z5',
-      gstName: 'Demo Restaurant Pvt Ltd',
-      phone: '9999999999',
-      email: 'demo@restaurant.com',
-    },
-  })
-
-  // Create owner user
-  const hashedPassword = await bcrypt.hash('demo1234', 12)
-  await prisma.user.create({
-    data: {
-      tenantId: tenant.id,
-      name: 'Restaurant Owner',
-      email: 'owner@demo.com',
-      password: hashedPassword,
-      role: UserRole.OWNER,
-    },
-  })
-
-  // Create GST config
-  await prisma.gSTConfig.create({
-    data: {
-      tenantId: tenant.id,
-      defaultGSTRate: 5,
-      isGSTRegistered: true,
-      gstin: '22AAAAA0000A1Z5',
-      gstBusinessName: 'Demo Restaurant Pvt Ltd',
-    },
-  })
-
-  // Create categories
-  const categories = await Promise.all([
-    prisma.category.create({ data: { tenantId: tenant.id, name: 'Starter', sortOrder: 1 } }),
-    prisma.category.create({ data: { tenantId: tenant.id, name: 'Main Course', sortOrder: 2 } }),
-    prisma.category.create({ data: { tenantId: tenant.id, name: 'Bread', sortOrder: 3 } }),
-    prisma.category.create({ data: { tenantId: tenant.id, name: 'Rice', sortOrder: 4 } }),
-    prisma.category.create({ data: { tenantId: tenant.id, name: 'Drinks', sortOrder: 5 } }),
-    prisma.category.create({ data: { tenantId: tenant.id, name: 'Dessert', sortOrder: 6 } }),
-  ])
-
-  const [starter, mainCourse, bread, rice, drinks, dessert] = categories
-
-  // Create menu items
-  await prisma.menuItem.createMany({
-    data: [
-      { tenantId: tenant.id, categoryId: starter.id, name: 'Paneer Tikka', price: 220, gstRate: 5, costPrice: 80, isVeg: true },
-      { tenantId: tenant.id, categoryId: starter.id, name: 'Samosa (2 pcs)', price: 60, gstRate: 5, costPrice: 15, isVeg: true },
-      { tenantId: tenant.id, categoryId: mainCourse.id, name: 'Butter Chicken', price: 280, gstRate: 5, costPrice: 120, isVeg: false },
-      { tenantId: tenant.id, categoryId: mainCourse.id, name: 'Dal Makhani', price: 180, gstRate: 5, costPrice: 60, isVeg: true },
-      { tenantId: tenant.id, categoryId: mainCourse.id, name: 'Chicken Biryani', price: 320, gstRate: 5, costPrice: 130, isVeg: false },
-      { tenantId: tenant.id, categoryId: bread.id, name: 'Butter Naan', price: 40, gstRate: 5, costPrice: 10, isVeg: true },
-      { tenantId: tenant.id, categoryId: bread.id, name: 'Tandoori Roti', price: 30, gstRate: 5, costPrice: 8, isVeg: true },
-      { tenantId: tenant.id, categoryId: rice.id, name: 'Jeera Rice', price: 120, gstRate: 5, costPrice: 30, isVeg: true },
-      { tenantId: tenant.id, categoryId: drinks.id, name: 'Mango Lassi', price: 80, gstRate: 12, costPrice: 25, isVeg: true },
-      { tenantId: tenant.id, categoryId: drinks.id, name: 'Cold Coffee', price: 100, gstRate: 12, costPrice: 30, isVeg: true },
-      { tenantId: tenant.id, categoryId: dessert.id, name: 'Gulab Jamun', price: 90, gstRate: 5, costPrice: 20, isVeg: true },
-    ],
-  })
-
-  // Create inventory items
-  await prisma.inventoryItem.createMany({
-    data: [
-      { tenantId: tenant.id, name: 'Chicken', unit: 'kg', quantity: 5, minStockLevel: 2, costPerUnit: 250, supplier: 'Fresh Farm' },
-      { tenantId: tenant.id, name: 'Paneer', unit: 'kg', quantity: 3, minStockLevel: 1, costPerUnit: 180, supplier: 'Dairy Fresh' },
-      { tenantId: tenant.id, name: 'Flour (Maida)', unit: 'kg', quantity: 10, minStockLevel: 3, costPerUnit: 40, supplier: 'Local Market' },
-      { tenantId: tenant.id, name: 'Basmati Rice', unit: 'kg', quantity: 8, minStockLevel: 3, costPerUnit: 80, supplier: 'Local Market' },
-      { tenantId: tenant.id, name: 'Milk', unit: 'litre', quantity: 6, minStockLevel: 2, costPerUnit: 60, supplier: 'Dairy Fresh' },
-      { tenantId: tenant.id, name: 'Tomatoes', unit: 'kg', quantity: 1.5, minStockLevel: 2, costPerUnit: 30, supplier: 'Veggie Mart' },
-    ],
-  })
-
-  console.log('✅ Seed complete. Login: owner@demo.com / demo1234')
-}
-
-main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect())
-```
-
-Add to `package.json`:
-```json
-{
-  "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
-  }
-}
-```
-
----
-
-## Key Index Strategy
-
-All queries filter by `tenantId` first — indexes are on:
-- `(tenantId)` — all main models
-- `(tenantId, status)` — orders (most common filter)
-- `(tenantId, createdAt)` — orders for reports
-- `(tenantId, phone)` — customers (unique, used for search)
-- `(tenantId, name)` — categories (unique)
-
----
-
-## Order Number Generation
-
-Generate human-readable sequential order numbers per tenant:
-
-```typescript
-// lib/orderNumber.ts
-export async function generateOrderNumber(tenantId: string): Promise<string> {
-  const count = await prisma.order.count({ where: { tenantId } })
-  const num = String(count + 1).padStart(6, '0')
-  return `ORD-${num}`
-}
-```
-
-Result: `ORD-000001`, `ORD-000002`, etc.
-
----
-
-## Database Connection Notes
-
-### Phase 1 — Supabase Free
 ```prisma
-datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")   // Transaction pooler URL (pgBouncer)
-  directUrl = env("DIRECT_URL")     // Direct connection URL (for migrations)
+// ─────────────────────────────────────────────
+// TABLES
+// ─────────────────────────────────────────────
+
+model RestaurantTable {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @db.Uuid
+  name        String
+  capacity    Int      @default(4)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("RestaurantTableCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("RestaurantTableUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("restaurant_tables")
 }
 ```
-Prisma needs BOTH urls for Supabase:
-- `DATABASE_URL` → uses pgBouncer connection pooling (for app queries)
-- `DIRECT_URL` → direct connection (for `prisma migrate` commands)
 
-Get both from: Supabase Dashboard → Project → Settings → Database → Connection string
+Powers `/settings/tables` and the table picker in `/new-order` for dine-in orders. Every new tenant gets two default tables (`T1`, `T2`) seeded by `lib/tenant-defaults.ts`.
 
-### Phase 2 — Supabase Pro
-Same setup, just upgrade plan in Supabase dashboard. Zero code changes.
-
-### Phase 3 — AWS EC2 Postgres
 ```prisma
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")   // Direct EC2 connection, no pooler needed
+// ─────────────────────────────────────────────
+// ANNOUNCEMENTS
+// ─────────────────────────────────────────────
+
+model Announcement {
+  id          String             @id @default(uuid(7)) @db.Uuid
+  title       String
+  content     String
+  targetType  AnnouncementTarget @default(ALL)
+  isActive    Boolean            @default(true)
+  createdById String?            @db.Uuid
+  updatedById String?            @db.Uuid
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  createdBy User?                @relation("AnnouncementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?                @relation("AnnouncementUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  targets   AnnouncementTenant[]
+  reads     AnnouncementRead[]
+
+  @@index([createdAt])
+  @@map("announcements")
+}
+
+model AnnouncementTenant {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  announcementId String   @db.Uuid
+  tenantId       String   @db.Uuid
+  createdById    String?  @db.Uuid
+  updatedById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("AnnouncementTenantCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("AnnouncementTenantUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([announcementId, tenantId])
+  @@map("announcement_tenants")
+}
+
+model AnnouncementRead {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  announcementId String   @db.Uuid
+  tenantId       String   @db.Uuid
+  readAt         DateTime @default(now())
+  createdById    String?  @db.Uuid
+  updatedById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("AnnouncementReadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("AnnouncementReadUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([announcementId, tenantId])
+  @@map("announcement_reads")
+}
+
+enum AnnouncementTarget {
+  ALL
+  SELECTED
 }
 ```
-Update DATABASE_URL in .env → run `prisma migrate deploy` → done.
-Zero code changes anywhere in the app.
+
+Platform admin (`SUPER_ADMIN`) broadcasts announcements to `ALL` tenants or a `SELECTED` subset (via `AnnouncementTenant` join rows). Each tenant's read state is tracked per-announcement in `AnnouncementRead`, powering the unread badge on `/announcements`.
+
+```prisma
+// ─────────────────────────────────────────────
+// COMMUNITY CHAT
+// ─────────────────────────────────────────────
+
+model CommunityMessage {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String?  @db.Uuid
+  senderName  String
+  isAdmin     Boolean  @default(false)
+  content     String
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  createdBy User?   @relation("CommunityMessageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?   @relation("CommunityMessageUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("community_messages")
+}
+
+// ─────────────────────────────────────────────
+// DIRECT MESSAGES (Restaurant ↔ Admin)
+// ─────────────────────────────────────────────
+
+model DirectMessage {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @db.Uuid
+  content     String
+  fromAdmin   Boolean  @default(false)
+  senderName  String
+  isRead      Boolean  @default(false)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("DirectMessageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("DirectMessageUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, isRead])
+  @@map("direct_messages")
+}
+```
+
+`CommunityMessage` is a single global room across all tenants + admin (`tenantId: null` when the sender is `SUPER_ADMIN`, displayed as "Admin"). `DirectMessage` is a private 1:1 thread between one tenant and the platform admin. Both power `/chat` (tenant side) and `/admin/chat` (admin side).
+
+## Connection setup
+
+- `datasource db { provider = "postgresql" }` — note there's **no `url`/`directUrl` in the datasource block itself**. Prisma 7 resolves connection strings from `prisma.config.ts` instead (see `STACK.md`).
+- Runtime queries go through `@prisma/adapter-pg` (`lib/prisma.ts`) using `DATABASE_URL` (Supabase pgBouncer transaction pooler, port 6543).
+- `prisma migrate` / `prisma db seed` / `prisma studio` use `DIRECT_URL` (Supabase direct connection, port 5432), configured in `prisma.config.ts`.

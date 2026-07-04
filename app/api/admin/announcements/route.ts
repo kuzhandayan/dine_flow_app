@@ -38,7 +38,7 @@ export async function GET(): Promise<NextResponse> {
 
 export async function POST(req: Request): Promise<NextResponse> {
   try {
-    await requireRole(['SUPER_ADMIN'])
+    const session = await requireRole(['SUPER_ADMIN'])
 
     const body: unknown = await req.json()
     const parsed = createAnnouncementSchema.safeParse(body)
@@ -53,10 +53,16 @@ export async function POST(req: Request): Promise<NextResponse> {
         title,
         content,
         targetType,
+        createdById: session.userId,
+        updatedById: session.userId,
         ...(targetType === 'SELECTED' && tenantIds?.length
           ? {
               targets: {
-                create: tenantIds.map((tenantId) => ({ tenantId })),
+                create: tenantIds.map((tenantId) => ({
+                  tenantId,
+                  createdById: session.userId,
+                  updatedById: session.userId,
+                })),
               },
             }
           : {}),

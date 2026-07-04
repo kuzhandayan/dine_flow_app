@@ -1,689 +1,155 @@
-# AUTH.md — Authentication & Authorization
+# AUTH.md — Authentication & Session Handling
 
-## Overview
+## Version reality check
 
-- **Framework:** NextAuth.js v5 (Auth.js) — latest beta
-- **Strategy:** JWT sessions (no database sessions — faster, stateless)
-- **Adapter:** Prisma (for user/account storage only)
-- **Password:** bcryptjs (12 rounds)
-- **Session contains:** userId, tenantId, role, name, email
-- **Route protection:** Next.js middleware (`middleware.ts`)
+`package.json` lists `"next-auth": "beta"`, but that currently **resolves to `next-auth@4.24.14`** — a stable v4 release, not the v5 beta the stack was originally planned around. `lib/auth.ts` is written against the **v4 API surface**: `NextAuth(authOptions)` handler, `getServerSession(authOptions)`, `NextAuthOptions` type. To keep the rest of the codebase (API routes, server components) calling `await auth()` the same way v5 would, `lib/auth.ts` exports a thin shim:
 
----
-
-## How It Works
-
-```
-User submits login form
-        ↓
-NextAuth credentials provider
-        ↓
-Find user in DB by email + tenantId (or by email globally)
-        ↓
-bcrypt.compare(password, hashedPassword)
-        ↓
-If valid → create JWT with: userId, tenantId, role, name, email
-        ↓
-JWT stored in httpOnly cookie
-        ↓
-Every request → middleware reads JWT → checks role → allows/redirects
-        ↓
-Every API route → getServerSession() → extracts tenantId → filters data
-```
-
----
-
-## File: `lib/auth.ts`
-
-```typescript
-import NextAuth from 'next-auth'
-import Credentials from 'next-auth/providers/credentials'
-import { PrismaAdapter } from '@auth/prisma-adapter'
-import bcrypt from 'bcryptjs'
-import { prisma } from '@/lib/prisma'
-import { loginSchema } from '@/lib/validations/auth'
-import type { UserRole } from '@prisma/client'
-
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  pages: {
-    signIn: '/login',
-    error: '/login',
-  },
-  providers: [
-    Credentials({
-      name: 'credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
-      async authorize(credentials) {
-        const parsed = loginSchema.safeParse(credentials)
-        if (!parsed.success) return null
-
-        const { email, password } = parsed.data
-
-        const user = await prisma.user.findFirst({
-          where: {
-            email: email.toLowerCase(),
-            isActive: true,
-          },
-          include: {
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                isActive: true,
-              },
-            },
-          },
-        })
-
-        if (!user || !user.tenant.isActive) return null
-
-        const passwordMatch = await bcrypt.compare(password, user.password)
-        if (!passwordMatch) return null
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          tenantId: user.tenantId,
-          tenantName: user.tenant.name,
-          tenantSlug: user.tenant.slug,
-        }
-      },
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, user }) {
-      // On initial sign in, user object is available
-      if (user) {
-        token.id = user.id
-        token.role = user.role as UserRole
-        token.tenantId = user.tenantId as string
-        token.tenantName = user.tenantName as string
-        token.tenantSlug = user.tenantSlug as string
-      }
-      return token
-    },
-    async session({ session, token }) {
-      // Attach custom fields to session
-      if (token && session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as UserRole
-        session.user.tenantId = token.tenantId as string
-        session.user.tenantName = token.tenantName as string
-        session.user.tenantSlug = token.tenantSlug as string
-      }
-      return session
-    },
-  },
-})
-```
-
----
-
-## File: `types/next-auth.d.ts`
-
-```typescript
-import type { UserRole } from '@prisma/client'
-import type { DefaultSession } from 'next-auth'
-
-declare module 'next-auth' {
-  interface Session {
-    user: {
-      id: string
-      role: UserRole
-      tenantId: string
-      tenantName: string
-      tenantSlug: string
-    } & DefaultSession['user']
-  }
-
-  interface User {
-    role: UserRole
-    tenantId: string
-    tenantName: string
-    tenantSlug: string
-  }
-}
-
-declare module 'next-auth/jwt' {
-  interface JWT {
-    id: string
-    role: UserRole
-    tenantId: string
-    tenantName: string
-    tenantSlug: string
-  }
+```ts
+export async function auth(): Promise<Session | null> {
+  return getServerSession(authOptions)
 }
 ```
 
----
+Everywhere else in the app calls `auth()`, not `getServerSession()` directly — if next-auth is ever actually upgraded to v5, this shim is the only place that needs to change.
 
-## File: `app/api/auth/[...nextauth]/route.ts`
-
-```typescript
-import { handlers } from '@/lib/auth'
-
-export const { GET, POST } = handlers
+`app/api/auth/[...nextauth]/route.ts` uses the classic v4 route handler pattern:
+```ts
+const handler = NextAuth(authOptions)
+export { handler as GET, handler as POST }
 ```
 
----
+`@auth/prisma-adapter` is installed but **not used** — the Credentials + JWT strategy doesn't need a database session adapter.
 
-## File: `middleware.ts` (root of project)
+## Session config
 
-```typescript
-import { auth } from '@/lib/auth'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { ROLE_PERMISSIONS } from '@/constants/ROLES'
+```ts
+const FIFTEEN_DAYS = 15 * 24 * 60 * 60
+const ONE_DAY = 24 * 60 * 60
+const REVALIDATE_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
 
-const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password']
-const INVITE_ROUTE = '/invite'
-const AUTH_ROUTES = ['/login', '/register']
-
-export default auth(async function middleware(req: NextRequest) {
-  const { nextUrl, auth: session } = req as NextRequest & { auth: Awaited<ReturnType<typeof auth>> }
-  const pathname = nextUrl.pathname
-
-  // Allow public routes always
-  if (PUBLIC_ROUTES.some(r => pathname.startsWith(r))) {
-    // If already logged in, redirect away from auth pages
-    if (session && AUTH_ROUTES.some(r => pathname.startsWith(r))) {
-      return NextResponse.redirect(new URL('/dashboard', req.url))
-    }
-    return NextResponse.next()
-  }
-
-  // Allow invite routes
-  if (pathname.startsWith(INVITE_ROUTE)) {
-    return NextResponse.next()
-  }
-
-  // All other routes require auth
-  if (!session) {
-    const loginUrl = new URL('/login', req.url)
-    loginUrl.searchParams.set('callbackUrl', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  // Role-based route protection
-  const userRole = session.user.role
-  const isAllowed = checkRoutePermission(pathname, userRole)
-
-  if (!isAllowed) {
-    return NextResponse.redirect(new URL('/dashboard', req.url))
-  }
-
-  return NextResponse.next()
-})
-
-function checkRoutePermission(pathname: string, role: string): boolean {
-  // Settings/team management — owner + manager only
-  if (pathname.startsWith('/settings/team') && !['OWNER', 'MANAGER', 'SUPER_ADMIN'].includes(role)) {
-    return false
-  }
-  // Reports — owner + manager only
-  if (pathname.startsWith('/reports') && !['OWNER', 'MANAGER', 'SUPER_ADMIN'].includes(role)) {
-    return false
-  }
-  // Menu management — owner + manager only
-  if (pathname.startsWith('/menu') && !['OWNER', 'MANAGER', 'SUPER_ADMIN'].includes(role)) {
-    return false
-  }
-  // Inventory — owner + manager only
-  if (pathname.startsWith('/inventory') && !['OWNER', 'MANAGER', 'SUPER_ADMIN'].includes(role)) {
-    return false
-  }
-  // GST settings — owner only
-  if (pathname.startsWith('/settings/gst') && !['OWNER', 'SUPER_ADMIN'].includes(role)) {
-    return false
-  }
-  return true
-}
-
-export const config = {
-  matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
-  ],
-}
+session: { strategy: 'jwt', maxAge: FIFTEEN_DAYS, updateAge: ONE_DAY }
+secret: process.env.NEXTAUTH_SECRET   // explicit, not left to next-auth's implicit env pickup
+pages: { signIn: '/login', error: '/login' }
 ```
 
----
+- **Session lifetime: 15 days, sliding.** As long as the user is active at least once every 15 days, they stay logged in. `updateAge: 1 day` means the underlying JWT `iat`/`exp` gets re-signed roughly once a day during activity, extending the 15-day window forward each time.
+- **JWT is stored in an httpOnly cookie**, contains `id, role, tenantId, tenantName, tenantSlug, currency, permissions, lastCheckedAt, error?`.
+- Rotate all active sessions instantly by rotating `NEXTAUTH_SECRET`.
 
-## File: `lib/middleware-helpers.ts`
+## Credentials provider (`authorize()`)
 
-```typescript
-import { auth } from '@/lib/auth'
-import { NextResponse } from 'next/server'
-import type { UserRole } from '@prisma/client'
+1. Looks up the user by `email` (lowercased) with `isActive: true`, joined with `tenant { id, name, slug, isActive, isSuspended, currency }`.
+2. No match → returns `null` (client sees a generic "invalid email or password").
+3. `bcrypt.compare` against the stored hash (12 rounds) → mismatch → `null`.
+4. **Tenant gate, before returning success** — these `throw`, not return `null`, so the client can distinguish them:
+   - `user.tenant.isSuspended` → `throw new Error('ACCOUNT_SUSPENDED')`
+   - `!user.tenant.isActive` → `throw new Error('ACCOUNT_INACTIVE')`
+5. Resolves effective `permissions`: the user's own `permissions[]` if non-empty, else `DEFAULT_PERMISSIONS[role]` from `constants/ROLES.ts`.
+6. Returns `{id, email, name, role, tenantId, tenantName, tenantSlug, currency, permissions}`.
 
-export interface AuthSession {
-  userId: string
-  tenantId: string
-  role: UserRole
-  name: string
-  email: string
-}
+`app/(auth)/login/LoginClient.tsx` calls `signIn('credentials', {..., redirect: false})` and branches on `result.error`:
+- `'ACCOUNT_SUSPENDED'` → amber inline banner: "Your restaurant account has been suspended. Please contact the platform admin."
+- `'ACCOUNT_INACTIVE'` → amber inline banner: "Your restaurant account has been deactivated..."
+- anything else → red inline banner: "Invalid email or password"
 
-// Use in every API route
+This is the **login-attempt-time** error path — distinct from the mid-session forced-logout path below.
+
+## JWT callback — the revalidation lifecycle
+
+This is the core mechanism that keeps a JWT session honest against DB state without hitting the database on every single request.
+
+```
+on sign-in (user present):
+  copy id/role/tenantId/tenantName/tenantSlug/currency/permissions onto the token
+  token.lastCheckedAt = Date.now()
+  clear token.error
+
+on every other invocation (user absent, i.e. an existing session being read):
+  dueForRevalidation = !token.lastCheckedAt || (now - token.lastCheckedAt > 1 hour)
+  if trigger === 'update' (explicit client refresh) OR dueForRevalidation:
+    fetch tenant {name, currency, isActive, isSuspended} and user {permissions, role, isActive} from DB
+    token.lastCheckedAt = now
+    if tenant missing/inactive/suspended:
+        token.error = 'TenantSuspended'
+    elif user missing/inactive:
+        token.error = 'AccountDisabled'
+    else:
+        clear token.error
+        refresh token.tenantName / currency / role / permissions from the fresh DB row
+```
+
+Net effect: a deactivated staff account or a suspended tenant loses effective access **within at most 1 hour automatically**, or **immediately** the next time the client calls `update()` (see below) — without querying the DB on every single page load in between.
+
+The `session()` callback mirrors token fields onto `session.user`, and additionally sets `session.error = token.error` when present — this is the only field consumed outside `lib/auth.ts` to detect a revoked session.
+
+## Client-side forced sign-out (`components/providers/SessionSyncProvider.tsx`)
+
+Mounted once, wrapping the authenticated app shell. Uses `useSession()`:
+
+- **Route change** (`usePathname()` changes) → calls `update()`, forcing an immediate JWT revalidation pass instead of waiting up to an hour.
+- **Tab becomes visible again** (`visibilitychange` listener) → same `update()` call.
+- **`status === 'unauthenticated'`** → `signOut({ callbackUrl: '/login?reason=SessionExpired' })`.
+- **`session.error` becomes truthy** (`'AccountDisabled'` or `'TenantSuspended'`) → `signOut({ callbackUrl: '/login?reason=' + session.error })`.
+
+`app/(auth)/login/LoginClient.tsx` reads `?reason=` once on mount and shows a toast via `useToast()` (see `UI.md`):
+
+| `reason` | Toast |
+|---|---|
+| `SessionExpired` | "Session expired — please sign in again." |
+| `AccountDisabled` | "Account deactivated — contact your restaurant owner." |
+| `TenantSuspended` | "Restaurant account suspended — contact the platform admin." |
+
+## Server-side enforcement (`lib/middleware-helpers.ts`)
+
+Every API route calls one of these — never `auth()` directly:
+
+```ts
 export async function requireAuth(): Promise<AuthSession> {
   const session = await auth()
-
-  if (!session?.user?.tenantId) {
-    throw new AuthError('Unauthorized', 401)
-  }
-
-  return {
-    userId: session.user.id,
-    tenantId: session.user.tenantId,
-    role: session.user.role,
-    name: session.user.name ?? '',
-    email: session.user.email ?? '',
-  }
+  if (!session?.user?.tenantId) throw new AuthError('Unauthorized', 401)
+  if (session.error) throw new AuthError(session.error, 401)   // honors the revocation flag
+  return { userId, tenantId, tenantName, role, name, email }
 }
 
-// Use for role-restricted API routes
 export async function requireRole(allowedRoles: UserRole[]): Promise<AuthSession> {
   const session = await requireAuth()
-
-  if (!allowedRoles.includes(session.role)) {
-    throw new AuthError('Forbidden', 403)
-  }
-
+  if (!allowedRoles.includes(session.role)) throw new AuthError('Forbidden', 403)
   return session
 }
-
-export class AuthError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number = 401
-  ) {
-    super(message)
-    this.name = 'AuthError'
-  }
-}
-
-// Standard API error response
-export function unauthorized(): NextResponse {
-  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-}
-
-export function forbidden(): NextResponse {
-  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-}
 ```
 
----
+`session.tenantId` is guaranteed present and safe to use in every `where: { tenantId }` clause after `requireAuth()`/`requireRole()` succeeds. `AuthSession` also carries `tenantName` (used for chat/announcement sender names) alongside `userId`, `role`, `name`, `email`.
 
-## File: `constants/ROLES.ts`
+Because `requireAuth()` checks `session.error`, an API caller whose account was just deactivated is locked out of every route the moment their token carries the error flag — which happens on the next `update()` trigger or within an hour, whichever comes first — even before the client-side forced sign-out kicks in.
 
-```typescript
-import type { UserRole } from '@prisma/client'
+## Route-level protection (`proxy.ts`)
 
-export const ROLES = {
-  SUPER_ADMIN: 'SUPER_ADMIN',
-  OWNER: 'OWNER',
-  MANAGER: 'MANAGER',
-  WAITER: 'WAITER',
-  KITCHEN: 'KITCHEN',
-} as const
+Next.js 16 renamed `middleware.ts` to `proxy.ts` (same mechanism). Uses `getToken` from `next-auth/jwt` directly:
+- `/admin*` paths require `role === 'SUPER_ADMIN'`, else redirect to `/admin/login`.
+- `/admin/login` itself redirects to `/admin/dashboard` if already a `SUPER_ADMIN`.
 
-export const ROLE_LABELS: Record<UserRole, string> = {
-  SUPER_ADMIN: 'Super Admin',
-  OWNER: 'Owner',
-  MANAGER: 'Manager',
-  WAITER: 'Waiter',
-  KITCHEN: 'Kitchen Staff',
-}
+## Registration (`app/api/auth/register`)
 
-export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  SUPER_ADMIN: ['*'],
-  OWNER: [
-    'dashboard', 'orders', 'new-order', 'check-order',
-    'menu', 'inventory', 'customers',
-    'reports', 'settings', 'settings/gst', 'settings/team',
-  ],
-  MANAGER: [
-    'dashboard', 'orders', 'new-order', 'check-order',
-    'menu', 'inventory', 'customers', 'reports', 'settings/team',
-  ],
-  WAITER: [
-    'dashboard', 'orders', 'new-order', 'check-order', 'customers',
-  ],
-  KITCHEN: [
-    'dashboard', 'orders', 'check-order',
-  ],
-}
+Public `POST`. Validates with `registerSchema`, rejects if the email already exists for *any* tenant, generates a unique slug from the restaurant name, then in one `$transaction`:
+1. Creates `Tenant`
+2. Creates `User` (role `OWNER`, `hashPassword()` from `lib/password.ts`) — no `createdById` set, since no authenticated actor exists yet
+3. Creates `GSTConfig` (default 5%, not GST-registered)
+4. Creates `Subscription` (`LIFETIME`/`ACTIVE`)
+5. Calls `seedTenantDefaults(tx, tenantId)` (`lib/tenant-defaults.ts`) — seeds 2 categories, 2 menu items, 2 inventory items, 2 tables so a new restaurant isn't a blank slate
 
-// Staff roles that can be invited (owners cannot be invited, they register)
-export const INVITABLE_ROLES: UserRole[] = ['MANAGER', 'WAITER', 'KITCHEN']
-```
+## Roles & permissions (`constants/ROLES.ts`)
 
----
+`UserRole` enum: `SUPER_ADMIN, OWNER, MANAGER, WAITER, KITCHEN, CASHIER`.
 
-## Registration Flow
+- `ROLE_PERMISSIONS` — static, coarse default page-list per role (used for reference/UI, not the actual gate).
+- `INVITABLE_ROLES = ['MANAGER', 'WAITER', 'KITCHEN', 'CASHIER']` — roles an owner/manager can create via `POST /api/team` (OWNER/SUPER_ADMIN are never created this way).
+- `CUSTOMIZABLE_ROLES = ['WAITER', 'KITCHEN', 'CASHIER']` — the only roles whose per-user `permissions[]` an owner/manager can hand-edit.
+- `DEFAULT_PERMISSIONS: Partial<Record<UserRole, string[]>>` — fallback module list used both in `authorize()` and when a staff account is created without explicit `permissions`.
+- `ASSIGNABLE_MODULES: ModuleDef[]` — the fine-grained module catalogue for the permission-editor UI, grouped into `Operations` (dashboard, new-order, orders, kitchen, check-order), `Management` (menu, inventory, customers), `Insights` (reports), `Updates` (announcements, chat).
 
-### File: `app/(auth)/register/page.tsx` logic
+This is a real two-layer RBAC: a coarse role, plus a per-user `permissions: String[]` override stored directly on `User` — not just a static role→pages map.
 
-```typescript
-// When a new restaurant registers:
-// 1. Validate input (Zod)
-// 2. Check email not already used in this "new tenant" context
-// 3. Create Tenant + Owner User in a single Prisma transaction
-// 4. Create default GSTConfig for tenant
-// 5. Auto-login after registration
+## Not implemented
 
-async function registerRestaurant(data: RegisterInput): Promise<void> {
-  const { restaurantName, ownerName, email, password } = data
-
-  // Generate unique slug from restaurant name
-  const slug = generateSlug(restaurantName)
-
-  await prisma.$transaction(async (tx) => {
-    const tenant = await tx.tenant.create({
-      data: {
-        name: restaurantName,
-        slug: await ensureUniqueSlug(slug, tx),
-      },
-    })
-
-    const hashedPassword = await bcrypt.hash(password, 12)
-
-    await tx.user.create({
-      data: {
-        tenantId: tenant.id,
-        name: ownerName,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        role: 'OWNER',
-      },
-    })
-
-    await tx.gSTConfig.create({
-      data: {
-        tenantId: tenant.id,
-        defaultGSTRate: 5,
-        isGSTRegistered: false,
-      },
-    })
-  })
-}
-```
-
----
-
-## Invite Flow
-
-### Creating an Invite
-
-```typescript
-// POST /api/invite
-// Role: OWNER or MANAGER only
-
-async function createInvite(tenantId: string, email: string, role: UserRole) {
-  // Check user doesn't already exist in this tenant
-  const existing = await prisma.user.findFirst({
-    where: { tenantId, email: email.toLowerCase() }
-  })
-  if (existing) throw new Error('User already exists')
-
-  // Create invite with 48-hour expiry
-  const invite = await prisma.invite.create({
-    data: {
-      tenantId,
-      email: email.toLowerCase(),
-      role,
-      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
-    },
-  })
-
-  // Send email via Resend
-  await sendInviteEmail(email, invite.token, tenantName)
-}
-```
-
-### Accepting an Invite
-
-```typescript
-// POST /api/invite/[token]
-
-async function acceptInvite(token: string, name: string, password: string) {
-  const invite = await prisma.invite.findUnique({ where: { token } })
-
-  if (!invite) throw new Error('Invalid invite')
-  if (invite.usedAt) throw new Error('Invite already used')
-  if (invite.expiresAt < new Date()) throw new Error('Invite expired')
-
-  const hashedPassword = await bcrypt.hash(password, 12)
-
-  await prisma.$transaction(async (tx) => {
-    await tx.user.create({
-      data: {
-        tenantId: invite.tenantId,
-        name,
-        email: invite.email,
-        password: hashedPassword,
-        role: invite.role,
-      },
-    })
-
-    await tx.invite.update({
-      where: { id: invite.id },
-      data: { usedAt: new Date() },
-    })
-  })
-}
-```
-
----
-
-## Email: `lib/email.ts`
-
-```typescript
-import { Resend } from 'resend'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
-
-export async function sendInviteEmail(
-  to: string,
-  token: string,
-  restaurantName: string
-): Promise<void> {
-  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`
-
-  await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL!,
-    to,
-    subject: `You're invited to join ${restaurantName} on DineFlow`,
-    html: `
-      <h2>You've been invited!</h2>
-      <p>You have been invited to join <strong>${restaurantName}</strong> on DineFlow POS.</p>
-      <p>Click the link below to set up your account. This link expires in 48 hours.</p>
-      <a href="${inviteUrl}" style="background:#f97316;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;">Accept Invite</a>
-      <p>If you did not expect this email, please ignore it.</p>
-    `,
-  })
-}
-
-export async function sendPasswordResetEmail(
-  to: string,
-  token: string
-): Promise<void> {
-  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`
-
-  await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL!,
-    to,
-    subject: 'Reset your DineFlow password',
-    html: `
-      <h2>Password Reset Request</h2>
-      <p>Click the link below to reset your password. This link expires in 1 hour.</p>
-      <a href="${resetUrl}" style="background:#f97316;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;">Reset Password</a>
-      <p>If you did not request this, please ignore this email.</p>
-    `,
-  })
-}
-```
-
----
-
-## Password Hashing Utility
-
-```typescript
-// lib/password.ts
-import bcrypt from 'bcryptjs'
-
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12)
-}
-
-export async function verifyPassword(
-  password: string,
-  hashedPassword: string
-): Promise<boolean> {
-  return bcrypt.compare(password, hashedPassword)
-}
-```
-
----
-
-## Validation Schemas
-
-```typescript
-// lib/validations/auth.ts
-import { z } from 'zod'
-
-export const loginSchema = z.object({
-  email: z.string().email('Invalid email address').toLowerCase(),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-})
-
-export const registerSchema = z.object({
-  restaurantName: z.string().min(2, 'Restaurant name too short').max(100),
-  ownerName: z.string().min(2, 'Name too short').max(100),
-  email: z.string().email('Invalid email').toLowerCase(),
-  password: z.string().min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Must contain uppercase')
-    .regex(/[0-9]/, 'Must contain number'),
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-})
-
-export const inviteAcceptSchema = z.object({
-  name: z.string().min(2).max(100),
-  password: z.string().min(8),
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-})
-
-export const forgotPasswordSchema = z.object({
-  email: z.string().email().toLowerCase(),
-})
-
-export const resetPasswordSchema = z.object({
-  token: z.string().min(1),
-  password: z.string().min(8),
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-})
-
-export type LoginInput = z.infer<typeof loginSchema>
-export type RegisterInput = z.infer<typeof registerSchema>
-export type InviteAcceptInput = z.infer<typeof inviteAcceptSchema>
-```
-
----
-
-## API Route Pattern — Always Use This
-
-```typescript
-// Every single API route follows this exact pattern
-import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireRole, AuthError } from '@/lib/middleware-helpers'
-import { prisma } from '@/lib/prisma'
-
-export async function GET(req: NextRequest): Promise<NextResponse> {
-  try {
-    const session = await requireAuth()
-    // For role-restricted: const session = await requireRole(['OWNER', 'MANAGER'])
-
-    const data = await prisma.order.findMany({
-      where: { tenantId: session.tenantId }, // ALWAYS filter by tenantId
-    })
-
-    return NextResponse.json({ data })
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.statusCode }
-      )
-    }
-    console.error('[GET /api/orders]', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-```
-
----
-
-## Session in Server Components
-
-```typescript
-// app/(dashboard)/orders/page.tsx
-import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
-
-export default async function OrdersPage() {
-  const session = await auth()
-
-  if (!session) redirect('/login')
-
-  // session.user.tenantId is available here
-  const orders = await prisma.order.findMany({
-    where: { tenantId: session.user.tenantId },
-  })
-
-  return <OrdersClient orders={orders} />
-}
-```
-
-## Session in Client Components
-
-```typescript
-'use client'
-import { useSession } from 'next-auth/react'
-
-export function OrderActions() {
-  const { data: session } = useSession()
-
-  if (!session) return null
-
-  // session.user.role is available
-  const canManage = ['OWNER', 'MANAGER'].includes(session.user.role)
-
-  return (
-    <div>
-      {canManage && <button>Edit Menu</button>}
-    </div>
-  )
-}
-```
+- No staff-invite-by-email flow, despite the `Invite` model existing in the schema (`app/api/invite/**` doesn't exist). Staff onboarding is `POST /api/team` with an owner/manager typing a password directly.
+- No password-reset flow verified/wired end-to-end in this doc pass — check `app/(auth)/forgot-password` and any matching API route directly before relying on this.

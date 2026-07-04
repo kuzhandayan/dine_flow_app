@@ -5,7 +5,7 @@ import {
   UtensilsCrossed, Receipt, BarChart3, Package, Users, TableProperties,
   MessageSquare, ShieldCheck, Zap, ChevronRight, Crown, BriefcaseBusiness,
   ConciergeBell, Landmark, CheckCircle2, TrendingUp, Clock, IndianRupee,
-  FileText, Bell, Search, Settings, Star, ArrowRight,
+  FileText, Bell, Search, Settings, Star, ArrowRight, ChefHat,
 } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -62,7 +62,7 @@ export default function HomePage(): React.JSX.Element {
             <a href="#about" className="hover:text-[rgb(var(--df-text))] transition-colors">About</a>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/admin/login" className="px-4 py-2 text-[13px] font-medium bg-[rgb(var(--df-accent))] hover:bg-[rgb(var(--df-accent-hover))] text-white rounded-xl transition-all shadow-lg shadow-orange-500/25">
+            <Link href="/admin/login" className="px-4 py-2 text-[13px] font-medium bg-[rgb(var(--df-accent))] hover:bg-[rgb(var(--df-accent-hover))] text-white rounded-xl transition-all shadow-lg shadow-[rgb(99,102,241)]/25">
               Admin Login
             </Link>
           </div>
@@ -73,8 +73,8 @@ export default function HomePage(): React.JSX.Element {
       <section className="relative pt-40 pb-24 px-6 text-center overflow-hidden">
         {/* Background glow orbs */}
         <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[rgb(var(--df-accent))]/8 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-40 left-1/4 w-72 h-72 bg-orange-500/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-40 right-1/4 w-72 h-72 bg-orange-600/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-40 left-1/4 w-72 h-72 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-40 right-1/4 w-72 h-72 bg-violet-600/5 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgb(var(--df-accent))]/10 border border-[rgb(var(--df-accent))]/25 rounded-full text-[12px] text-[rgb(var(--df-accent))] font-semibold mb-6 tracking-wide uppercase">
@@ -92,7 +92,7 @@ export default function HomePage(): React.JSX.Element {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
-            <Link href="/login" className="inline-flex items-center gap-2 px-7 py-3.5 bg-[rgb(var(--df-accent))] hover:bg-[rgb(var(--df-accent-hover))] text-white rounded-xl font-semibold text-[15px] transition-all shadow-2xl shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-0.5">
+            <Link href="/login" className="inline-flex items-center gap-2 px-7 py-3.5 bg-[rgb(var(--df-accent))] hover:bg-[rgb(var(--df-accent-hover))] text-white rounded-xl font-semibold text-[15px] transition-all shadow-2xl shadow-[rgb(99,102,241)]/30 hover:shadow-[rgb(99,102,241)]/50 hover:-translate-y-0.5">
               Sign In to Your Workspace
               <ArrowRight className="w-4 h-4" />
             </Link>
@@ -280,10 +280,10 @@ export default function HomePage(): React.JSX.Element {
             </div>
             <h2 className="text-3xl sm:text-4xl font-black mb-4">The right access for every team member</h2>
             <p className="text-[rgb(var(--df-text-2))] text-[15px] max-w-xl mx-auto">
-              Four distinct roles — each with precisely scoped permissions. No more, no less.
+              Five distinct roles — each with precisely scoped permissions. No more, no less.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {ROLES.map((r) => (
               <div key={r.role} className="bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl p-5 hover:border-[rgb(var(--df-accent))]/40 transition-all">
                 <div className="w-10 h-10 rounded-xl bg-[rgb(var(--df-accent))]/10 border border-[rgb(var(--df-accent))]/20 flex items-center justify-center mb-4">
@@ -325,7 +325,7 @@ export default function HomePage(): React.JSX.Element {
                   <div className="hidden sm:block absolute top-5 left-[calc(50%+2rem)] w-full h-px border-t border-dashed border-[rgb(var(--df-border))] z-0" />
                 )}
                 <div className="relative bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl p-6 text-center hover:border-[rgb(var(--df-accent))]/40 transition-all">
-                  <div className="w-10 h-10 rounded-full bg-[rgb(var(--df-accent))] text-white font-black text-[15px] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/30">
+                  <div className="w-10 h-10 rounded-full bg-[rgb(var(--df-accent))] text-white font-black text-[15px] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[rgb(99,102,241)]/30">
                     {i + 1}
                   </div>
                   <h3 className="font-bold text-[15px] mb-2">{step.title}</h3>
@@ -341,17 +341,17 @@ export default function HomePage(): React.JSX.Element {
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="relative bg-[rgb(var(--df-accent))] rounded-3xl p-10 sm:p-14 text-center overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-400/30 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/30 to-transparent pointer-events-none" />
             <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none" />
             <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-black/10 rounded-full blur-2xl pointer-events-none" />
             <div className="relative">
               <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">Want DineFlow for your restaurant?</h2>
-              <p className="text-orange-100 text-[15px] mb-3 max-w-lg mx-auto">
+              <p className="text-indigo-100 text-[15px] mb-3 max-w-lg mx-auto">
                 Reach out and we&apos;ll get your restaurant set up. GST billing, orders, and reports — ready from day one.
               </p>
               <p className="text-white/80 text-[13px] mb-8">Onboarding is handled directly by the DineFlow team.</p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <a href="mailto:sabbari.kv013@gmail.com" className="inline-flex items-center gap-2 px-7 py-3.5 bg-white text-[rgb(var(--df-accent))] hover:bg-orange-50 rounded-xl font-bold text-[15px] transition-all shadow-xl hover:-translate-y-0.5">
+                <a href="mailto:sabbari.kv013@gmail.com" className="inline-flex items-center gap-2 px-7 py-3.5 bg-white text-[rgb(var(--df-accent))] hover:bg-indigo-50 rounded-xl font-bold text-[15px] transition-all shadow-xl hover:-translate-y-0.5">
                   sabbari.kv013@gmail.com
                   <ChevronRight className="w-4 h-4" />
                 </a>
@@ -452,7 +452,7 @@ const FEATURES: { icon: LucideIcon; title: string; description: string; tags?: s
   {
     icon: ShieldCheck,
     title: 'Role-Based Access',
-    description: 'Owner, Manager, Waiter, Cashier — each role has precisely scoped permissions.',
+    description: 'Owner, Manager, Waiter, Kitchen, Cashier — each role has precisely scoped permissions.',
   },
   {
     icon: MessageSquare,
@@ -499,6 +499,12 @@ const ROLES: { icon: LucideIcon; role: string; tagline: string; perms: string[] 
     role: 'Waiter',
     tagline: 'Floor operations only',
     perms: ['Create new orders', 'Assign tables', 'View order status', 'Customer lookup', 'No settings access'],
+  },
+  {
+    icon: ChefHat,
+    role: 'Kitchen',
+    tagline: 'Kitchen display only',
+    perms: ['Live kitchen order queue', 'View menu items', 'View stock levels', 'No billing access', 'No settings access'],
   },
   {
     icon: Landmark,

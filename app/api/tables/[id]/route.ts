@@ -24,7 +24,7 @@ export async function PATCH(
     }
     const table = await prisma.restaurantTable.updateMany({
       where: { id, tenantId: session.tenantId },
-      data: parsed.data,
+      data: { ...parsed.data, updatedById: session.userId },
     })
     return NextResponse.json({ table })
   } catch (err) {
@@ -39,7 +39,7 @@ export async function DELETE(
   try {
     const session = await requireRole(['OWNER', 'MANAGER', 'SUPER_ADMIN'])
     const { id } = await params
-    await prisma.restaurantTable.updateMany({ where: { id, tenantId: session.tenantId }, data: { isActive: false } })
+    await prisma.restaurantTable.updateMany({ where: { id, tenantId: session.tenantId }, data: { isActive: false, updatedById: session.userId } })
     return NextResponse.json({ success: true })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Error' }, { status: 400 })

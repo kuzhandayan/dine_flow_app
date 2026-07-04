@@ -81,6 +81,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         password: hashed,
         role: role as UserRole,
         permissions: resolvedPermissions,
+        createdById: session.userId,
+        updatedById: session.userId,
       },
       select: { id: true, name: true, email: true, role: true, permissions: true, isActive: true, createdAt: true },
     })

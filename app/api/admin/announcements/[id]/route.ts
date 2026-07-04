@@ -8,7 +8,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   try {
-    await requireRole(['SUPER_ADMIN'])
+    const session = await requireRole(['SUPER_ADMIN'])
     const { id } = await params
     const body: unknown = await req.json()
     const parsed = updateAnnouncementSchema.safeParse(body)
@@ -26,10 +26,15 @@ export async function PATCH(
         ...(title !== undefined && { title }),
         ...(content !== undefined && { content }),
         ...(targetType !== undefined && { targetType }),
+        updatedById: session.userId,
         ...(targetType === 'SELECTED' && tenantIds?.length
           ? {
               targets: {
-                create: tenantIds.map((tenantId) => ({ tenantId })),
+                create: tenantIds.map((tenantId) => ({
+                  tenantId,
+                  createdById: session.userId,
+                  updatedById: session.userId,
+                })),
               },
             }
           : {}),

@@ -9,7 +9,7 @@ interface SessionSyncProviderProps {
 }
 
 export function SessionSyncProvider({ children }: SessionSyncProviderProps): React.JSX.Element {
-  const { status, update } = useSession()
+  const { data: session, status, update } = useSession()
   const pathname = usePathname()
   const prevPathname = useRef<string>(pathname)
   const updateRef = useRef(update)
@@ -22,9 +22,16 @@ export function SessionSyncProvider({ children }: SessionSyncProviderProps): Rea
   // Auto-logout when JWT expires or session is invalidated
   useEffect(() => {
     if (status === 'unauthenticated') {
-      void signOut({ callbackUrl: '/login' })
+      void signOut({ callbackUrl: '/login?reason=SessionExpired' })
     }
   }, [status])
+
+  // Auto-logout when the account is deactivated or the tenant is suspended
+  useEffect(() => {
+    if (session?.error) {
+      void signOut({ callbackUrl: `/login?reason=${session.error}` })
+    }
+  }, [session?.error])
 
   // Refresh session on every route change — picks up currency/tenantName changes
   useEffect(() => {

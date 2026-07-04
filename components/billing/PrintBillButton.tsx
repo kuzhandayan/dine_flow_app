@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Printer, Loader2 } from 'lucide-react'
-import { toast } from '@/hooks/useToast'
+import { useToast } from '@/components/providers/ToastProvider'
 import { generateBillPdf } from '@/lib/billPdf'
 
 interface Props {
@@ -50,6 +50,7 @@ interface OrderApiResponse {
 
 export function PrintBillButton({ orderId, orderNumber, variant = 'button' }: Props): React.JSX.Element {
   const [loading, setLoading] = useState(false)
+  const toast = useToast()
 
   async function handlePrint(): Promise<void> {
     setLoading(true)

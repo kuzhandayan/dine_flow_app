@@ -13,8 +13,8 @@ export async function POST(
 
     await prisma.announcementRead.upsert({
       where: { announcementId_tenantId: { announcementId, tenantId } },
-      create: { announcementId, tenantId },
-      update: { readAt: new Date() },
+      create: { announcementId, tenantId, createdById: session.userId, updatedById: session.userId },
+      update: { readAt: new Date(), updatedById: session.userId },
     })
 
     return NextResponse.json({ success: true })

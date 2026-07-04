@@ -45,6 +45,8 @@ export async function POST(req: Request): Promise<NextResponse> {
         minStockLevel,
         costPerUnit,
         supplier: supplier ?? null,
+        createdById: session.userId,
+        updatedById: session.userId,
       },
     })
 

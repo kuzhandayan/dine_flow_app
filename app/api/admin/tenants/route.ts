@@ -83,7 +83,7 @@ function generateSlug(name: string): string {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    await requireRole(['SUPER_ADMIN'])
+    const session = await requireRole(['SUPER_ADMIN'])
     const body: unknown = await req.json()
     const parsed = createSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 })
@@ -102,13 +102,46 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const tenant = await prisma.$transaction(async (tx) => {
       const t = await tx.tenant.create({
-        data: { name: restaurantName, slug, email: email.toLowerCase(), phone: phone ?? null, gstin: gstin ?? null, address: address ?? null },
+        data: {
+          name: restaurantName,
+          slug,
+          email: email.toLowerCase(),
+          phone: phone ?? null,
+          gstin: gstin ?? null,
+          address: address ?? null,
+          createdById: session.userId,
+          updatedById: session.userId,
+        },
       })
       await tx.user.create({
-        data: { tenantId: t.id, name: ownerName, email: email.toLowerCase(), password: hashed, role: 'OWNER' },
+        data: {
+          tenantId: t.id,
+          name: ownerName,
+          email: email.toLowerCase(),
+          password: hashed,
+          role: 'OWNER',
+          createdById: session.userId,
+          updatedById: session.userId,
+        },
       })
-      await tx.gSTConfig.create({ data: { tenantId: t.id, defaultGSTRate: 5, isGSTRegistered: false } })
-      await tx.subscription.create({ data: { tenantId: t.id, type: 'LIFETIME', status: 'ACTIVE' } })
+      await tx.gSTConfig.create({
+        data: {
+          tenantId: t.id,
+          defaultGSTRate: 5,
+          isGSTRegistered: false,
+          createdById: session.userId,
+          updatedById: session.userId,
+        },
+      })
+      await tx.subscription.create({
+        data: {
+          tenantId: t.id,
+          type: 'LIFETIME',
+          status: 'ACTIVE',
+          createdById: session.userId,
+          updatedById: session.userId,
+        },
+      })
       await seedTenantDefaults(tx, t.id)
       return t
     })

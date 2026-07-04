@@ -11,7 +11,7 @@ datasource db {
 // ─────────────────────────────────────────────
 
 model Tenant {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid(7)) @db.Uuid
   name        String
   slug        String   @unique
   gstin       String?
@@ -23,10 +23,15 @@ model Tenant {
   currency    String   @default("INR")
   timezone    String   @default("Asia/Kolkata")
   isActive    Boolean  @default(true)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  users                User[]
+  createdBy User? @relation("TenantCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("TenantUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  users                User[]                @relation("UserTenant")
   customers            Customer[]
   orders               Order[]
   menuItems            MenuItem[]
@@ -53,8 +58,8 @@ model Tenant {
 // ─────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  tenantId      String
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @db.Uuid
   name          String
   email         String
   emailVerified DateTime?
@@ -62,22 +67,86 @@ model User {
   role          UserRole  @default(WAITER)
   permissions   String[]  @default([])
   isActive      Boolean   @default(true)
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  tenant             Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant @relation("UserTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdUsers User[] @relation("UserCreatedBy")
+  updatedUsers User[] @relation("UserUpdatedBy")
+
+  createdTenants Tenant[] @relation("TenantCreatedBy")
+  updatedTenants Tenant[] @relation("TenantUpdatedBy")
+
+  createdInvites Invite[] @relation("InviteCreatedBy")
+  updatedInvites Invite[] @relation("InviteUpdatedBy")
+
+  createdCustomers Customer[] @relation("CustomerCreatedBy")
+  updatedCustomers Customer[] @relation("CustomerUpdatedBy")
+
+  createdCategories Category[] @relation("CategoryCreatedBy")
+  updatedCategories Category[] @relation("CategoryUpdatedBy")
+
+  createdMenuItems MenuItem[] @relation("MenuItemCreatedBy")
+  updatedMenuItems MenuItem[] @relation("MenuItemUpdatedBy")
+
+  createdInventoryItems InventoryItem[] @relation("InventoryItemCreatedBy")
+  updatedInventoryItems InventoryItem[] @relation("InventoryItemUpdatedBy")
+
+  createdRestockLogs RestockLog[] @relation("RestockLogCreatedBy")
+  updatedRestockLogs RestockLog[] @relation("RestockLogUpdatedBy")
+
+  createdOrders Order[] @relation("OrderCreatedBy")
+  updatedOrders Order[] @relation("OrderUpdatedBy")
+
+  createdOrderItems OrderItem[] @relation("OrderItemCreatedBy")
+  updatedOrderItems OrderItem[] @relation("OrderItemUpdatedBy")
+
+  createdPayments Payment[] @relation("PaymentCreatedBy")
+  updatedPayments Payment[] @relation("PaymentUpdatedBy")
+
+  createdGstConfigs GSTConfig[] @relation("GSTConfigCreatedBy")
+  updatedGstConfigs GSTConfig[] @relation("GSTConfigUpdatedBy")
+
+  createdSubscriptions Subscription[] @relation("SubscriptionCreatedBy")
+  updatedSubscriptions Subscription[] @relation("SubscriptionUpdatedBy")
+
+  createdSubscriptionPayments SubscriptionPayment[] @relation("SubscriptionPaymentCreatedBy")
+  updatedSubscriptionPayments SubscriptionPayment[] @relation("SubscriptionPaymentUpdatedBy")
+
+  createdRestaurantTables RestaurantTable[] @relation("RestaurantTableCreatedBy")
+  updatedRestaurantTables RestaurantTable[] @relation("RestaurantTableUpdatedBy")
+
+  createdAnnouncements Announcement[] @relation("AnnouncementCreatedBy")
+  updatedAnnouncements Announcement[] @relation("AnnouncementUpdatedBy")
+
+  createdAnnouncementTenants AnnouncementTenant[] @relation("AnnouncementTenantCreatedBy")
+  updatedAnnouncementTenants AnnouncementTenant[] @relation("AnnouncementTenantUpdatedBy")
+
+  createdAnnouncementReads AnnouncementRead[] @relation("AnnouncementReadCreatedBy")
+  updatedAnnouncementReads AnnouncementRead[] @relation("AnnouncementReadUpdatedBy")
+
+  createdCommunityMessages CommunityMessage[] @relation("CommunityMessageCreatedBy")
+  updatedCommunityMessages CommunityMessage[] @relation("CommunityMessageUpdatedBy")
+
+  createdDirectMessages DirectMessage[] @relation("DirectMessageCreatedBy")
+  updatedDirectMessages DirectMessage[] @relation("DirectMessageUpdatedBy")
+
   sessions           Session[]
-  orders             Order[]  @relation("OrderCreatedBy")
-  mustChangePassword Boolean  @default(false)
+  mustChangePassword Boolean   @default(false)
 
   @@unique([tenantId, email])
   @@map("users")
 }
 
 model Session {
-  id           String   @id @default(cuid())
+  id           String   @id @default(uuid(7)) @db.Uuid
   sessionToken String   @unique
-  userId       String
+  userId       String   @db.Uuid
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -94,16 +163,21 @@ model VerificationToken {
 }
 
 model Invite {
-  id        String   @id @default(cuid())
-  tenantId  String
-  email     String
-  role      UserRole @default(WAITER)
-  token     String   @unique @default(cuid())
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
+  id          String    @id @default(uuid(7)) @db.Uuid
+  tenantId    String    @db.Uuid
+  email       String
+  role        UserRole  @default(WAITER)
+  token       String    @unique @default(cuid())
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("InviteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("InviteUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("invites")
 }
@@ -122,8 +196,8 @@ enum UserRole {
 // ─────────────────────────────────────────────
 
 model Customer {
-  id          String    @id @default(cuid())
-  tenantId    String
+  id          String    @id @default(uuid(7)) @db.Uuid
+  tenantId    String    @db.Uuid
   name        String
   phone       String
   email       String?
@@ -133,11 +207,15 @@ model Customer {
   totalSpent  Float     @default(0)
   lastVisitAt DateTime?
   isActive    Boolean   @default(true)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  orders Order[]
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  orders    Order[]
 
   @@unique([tenantId, phone])
   @@index([tenantId])
@@ -149,15 +227,19 @@ model Customer {
 // ─────────────────────────────────────────────
 
 model Category {
-  id        String   @id @default(cuid())
-  tenantId  String
-  name      String
-  sortOrder Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @db.Uuid
+  name        String
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?      @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?      @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   menuItems MenuItem[]
 
   @@unique([tenantId, name])
@@ -166,25 +248,29 @@ model Category {
 }
 
 model MenuItem {
-  id              String  @id @default(cuid())
-  tenantId        String
-  categoryId      String?
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @db.Uuid
+  categoryId      String?  @db.Uuid
   name            String
   description     String?
   price           Float
   costPrice       Float?
-  gstRate         Float   @default(5)
-  isAvailable     Boolean @default(true)
-  isActive        Boolean @default(true)
-  isVeg           Boolean @default(true)
-  sortOrder       Int     @default(0)
-  inventoryItemId String?
+  gstRate         Float    @default(5)
+  isAvailable     Boolean  @default(true)
+  isActive        Boolean  @default(true)
+  isVeg           Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  inventoryItemId String?  @db.Uuid
+  createdById     String?  @db.Uuid
+  updatedById     String?  @db.Uuid
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  createdBy     User?          @relation("MenuItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?          @relation("MenuItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   orderItems    OrderItem[]
 
   @@index([tenantId])
@@ -197,8 +283,8 @@ model MenuItem {
 // ─────────────────────────────────────────────
 
 model InventoryItem {
-  id              String    @id @default(cuid())
-  tenantId        String
+  id              String    @id @default(uuid(7)) @db.Uuid
+  tenantId        String    @db.Uuid
   name            String
   unit            String
   quantity        Float     @default(0)
@@ -207,10 +293,14 @@ model InventoryItem {
   supplier        String?
   lastRestockedAt DateTime?
   isActive        Boolean   @default(true)
+  createdById     String?   @db.Uuid
+  updatedById     String?   @db.Uuid
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy   User?        @relation("InventoryItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?        @relation("InventoryItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   menuItems   MenuItem[]
   restockLogs RestockLog[]
 
@@ -219,15 +309,20 @@ model InventoryItem {
 }
 
 model RestockLog {
-  id              String   @id @default(cuid())
-  inventoryItemId String
+  id              String   @id @default(uuid(7)) @db.Uuid
+  inventoryItemId String   @db.Uuid
   quantityAdded   Float
   costPerUnit     Float?
   supplier        String?
   notes           String?
+  createdById     String?  @db.Uuid
+  updatedById     String?  @db.Uuid
   createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  createdBy     User?         @relation("RestockLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?         @relation("RestockLogUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("restock_logs")
 }
@@ -237,15 +332,17 @@ model RestockLog {
 // ─────────────────────────────────────────────
 
 model Order {
-  id          String      @id @default(cuid())
-  tenantId    String
-  customerId  String
-  createdById String?
+  id          String      @id @default(uuid(7)) @db.Uuid
+  tenantId    String      @db.Uuid
+  customerId  String      @db.Uuid
+  createdById String?     @db.Uuid
+  updatedById String?     @db.Uuid
   orderNumber String
   type        OrderType   @default(DINE_IN)
   tableNumber String?
   status      OrderStatus @default(PENDING)
   notes       String?
+  isActive    Boolean     @default(true)
 
   subtotal   Float
   totalGST   Float
@@ -262,9 +359,10 @@ model Order {
   updatedAt   DateTime  @updatedAt
   completedAt DateTime?
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer  Customer  @relation(fields: [customerId], references: [id])
-  createdBy User?     @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer  Customer    @relation(fields: [customerId], references: [id])
+  createdBy User?       @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?       @relation("OrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   items     OrderItem[]
   payments  Payment[]
 
@@ -276,22 +374,28 @@ model Order {
 }
 
 model OrderItem {
-  id         String @id @default(cuid())
-  orderId    String
-  menuItemId String
-  name       String
-  price      Float
-  gstRate    Float
-  quantity   Int
-  subtotal   Float
-  gstAmount  Float
-  cgst       Float
-  sgst       Float
-  total      Float
-  notes      String?
+  id          String   @id @default(uuid(7)) @db.Uuid
+  orderId     String   @db.Uuid
+  menuItemId  String   @db.Uuid
+  name        String
+  price       Float
+  gstRate     Float
+  quantity    Int
+  subtotal    Float
+  gstAmount   Float
+  cgst        Float
+  sgst        Float
+  total       Float
+  notes       String?
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem @relation(fields: [menuItemId], references: [id])
+  createdBy User?    @relation("OrderItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?    @relation("OrderItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@map("order_items")
@@ -302,15 +406,20 @@ model OrderItem {
 // ─────────────────────────────────────────────
 
 model Payment {
-  id        String        @id @default(cuid())
-  orderId   String
-  amount    Float
-  method    PaymentMethod
-  status    String        @default("success")
-  reference String?
-  createdAt DateTime      @default(now())
+  id          String        @id @default(uuid(7)) @db.Uuid
+  orderId     String        @db.Uuid
+  amount      Float
+  method      PaymentMethod
+  status      String        @default("success")
+  reference   String?
+  createdById String?       @db.Uuid
+  updatedById String?       @db.Uuid
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("PaymentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@map("payments")
@@ -321,17 +430,22 @@ model Payment {
 // ─────────────────────────────────────────────
 
 model GSTConfig {
-  id              String  @id @default(cuid())
-  tenantId        String  @unique
-  gstEnabled      Boolean @default(true)
-  defaultGSTRate  Float   @default(5)
-  isGSTRegistered Boolean @default(false)
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @unique @db.Uuid
+  gstEnabled      Boolean  @default(true)
+  defaultGSTRate  Float    @default(5)
+  isGSTRegistered Boolean  @default(false)
   gstin           String?
   gstBusinessName String?
   gstAddress      String?
+  createdById     String?  @db.Uuid
+  updatedById     String?  @db.Uuid
+  createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("GSTConfigCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("GSTConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("gst_configs")
 }
@@ -374,8 +488,8 @@ enum PaymentMethod {
 // ─────────────────────────────────────────────
 
 model Subscription {
-  id             String             @id @default(cuid())
-  tenantId       String             @unique
+  id             String             @id @default(uuid(7)) @db.Uuid
+  tenantId       String             @unique @db.Uuid
   type           SubscriptionType   @default(LIFETIME)
   status         SubscriptionStatus @default(ACTIVE)
   startDate      DateTime           @default(now())
@@ -385,28 +499,38 @@ model Subscription {
   notes          String?
   lastPaymentAt  DateTime?
   lastPaymentAmt Float?
+  createdById    String?            @db.Uuid
+  updatedById    String?            @db.Uuid
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
-  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  payments SubscriptionPayment[]
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?                 @relation("SubscriptionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?                 @relation("SubscriptionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  payments  SubscriptionPayment[]
 
   @@map("subscriptions")
 }
 
 model SubscriptionPayment {
-  id              String    @id @default(cuid())
-  subscriptionId  String
-  amount          Float
-  currency        String    @default("INR")
-  method          String
-  reference       String?
-  paidAt          DateTime  @default(now())
-  extendedUntil   DateTime?
-  notes           String?
-  recordedBy      String
+  id             String    @id @default(uuid(7)) @db.Uuid
+  subscriptionId String    @db.Uuid
+  amount         Float
+  currency       String    @default("INR")
+  method         String
+  reference      String?
+  paidAt         DateTime  @default(now())
+  extendedUntil  DateTime?
+  notes          String?
+  recordedBy     String    @db.Uuid
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  createdBy    User?        @relation("SubscriptionPaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("SubscriptionPaymentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("subscription_payments")
 }
@@ -428,15 +552,20 @@ enum SubscriptionStatus {
 // ─────────────────────────────────────────────
 
 model RestaurantTable {
-  id        String  @id @default(cuid())
-  tenantId  String
-  name      String
-  capacity  Int     @default(4)
-  isActive  Boolean @default(true)
-  sortOrder Int     @default(0)
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @db.Uuid
+  name        String
+  capacity    Int      @default(4)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("RestaurantTableCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("RestaurantTableUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -448,41 +577,57 @@ model RestaurantTable {
 // ─────────────────────────────────────────────
 
 model Announcement {
-  id          String             @id @default(cuid())
+  id          String             @id @default(uuid(7)) @db.Uuid
   title       String
   content     String
   targetType  AnnouncementTarget @default(ALL)
   isActive    Boolean            @default(true)
+  createdById String?            @db.Uuid
+  updatedById String?            @db.Uuid
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
-  targets AnnouncementTenant[]
-  reads   AnnouncementRead[]
+  createdBy User?                @relation("AnnouncementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?                @relation("AnnouncementUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  targets   AnnouncementTenant[]
+  reads     AnnouncementRead[]
 
   @@index([createdAt])
   @@map("announcements")
 }
 
 model AnnouncementTenant {
-  id             String   @id @default(cuid())
-  announcementId String
-  tenantId       String
+  id             String   @id @default(uuid(7)) @db.Uuid
+  announcementId String   @db.Uuid
+  tenantId       String   @db.Uuid
+  createdById    String?  @db.Uuid
+  updatedById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("AnnouncementTenantCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("AnnouncementTenantUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@unique([announcementId, tenantId])
   @@map("announcement_tenants")
 }
 
 model AnnouncementRead {
-  id             String   @id @default(cuid())
-  announcementId String
-  tenantId       String
+  id             String   @id @default(uuid(7)) @db.Uuid
+  announcementId String   @db.Uuid
+  tenantId       String   @db.Uuid
   readAt         DateTime @default(now())
+  createdById    String?  @db.Uuid
+  updatedById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("AnnouncementReadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("AnnouncementReadUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@unique([announcementId, tenantId])
   @@map("announcement_reads")
@@ -498,14 +643,19 @@ enum AnnouncementTarget {
 // ─────────────────────────────────────────────
 
 model CommunityMessage {
-  id          String   @id @default(cuid())
-  tenantId    String?
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String?  @db.Uuid
   senderName  String
   isAdmin     Boolean  @default(false)
   content     String
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenant    Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  createdBy User?   @relation("CommunityMessageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?   @relation("CommunityMessageUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@map("community_messages")
@@ -516,15 +666,20 @@ model CommunityMessage {
 // ─────────────────────────────────────────────
 
 model DirectMessage {
-  id         String   @id @default(cuid())
-  tenantId   String
-  content    String
-  fromAdmin  Boolean  @default(false)
-  senderName String
-  isRead     Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @db.Uuid
+  content     String
+  fromAdmin   Boolean  @default(false)
+  senderName  String
+  isRead      Boolean  @default(false)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("DirectMessageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("DirectMessageUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
   @@index([tenantId, isRead])

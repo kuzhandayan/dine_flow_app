@@ -8,8 +8,13 @@ import { loginSchema } from '@/lib/validations/auth'
 import type { UserRole } from '@prisma/client'
 import { DEFAULT_PERMISSIONS } from '@/constants/ROLES'
 
+const FIFTEEN_DAYS = 15 * 24 * 60 * 60
+const ONE_DAY = 24 * 60 * 60
+const REVALIDATE_INTERVAL_MS = 60 * 60 * 1000 // re-check account/tenant status at most once per hour
+
 export const authOptions: NextAuthOptions = {
-  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
+  secret: process.env.NEXTAUTH_SECRET,
+  session: { strategy: 'jwt', maxAge: FIFTEEN_DAYS, updateAge: ONE_DAY },
   pages: { signIn: '/login', error: '/login' },
   providers: [
     Credentials({
@@ -73,10 +78,16 @@ export const authOptions: NextAuthOptions = {
         token.tenantSlug = u['tenantSlug'] as string
         token.currency = u['currency'] as string
         token.permissions = u['permissions'] as string[]
+        token.lastCheckedAt = Date.now()
+        delete token.error
       }
 
-      // Called when client triggers session.update() — re-fetch fresh tenant + user data
-      if (trigger === 'update' && token.tenantId) {
+      // Re-verify account/tenant status: on explicit client refresh (route change,
+      // tab focus — see SessionSyncProvider) or at most once per hour otherwise.
+      // This bounds how long a deactivated user or suspended tenant keeps API access.
+      const dueForRevalidation =
+        !token.lastCheckedAt || Date.now() - token.lastCheckedAt > REVALIDATE_INTERVAL_MS
+      if (!user && token.tenantId && (trigger === 'update' || dueForRevalidation)) {
         const [tenant, freshUser] = await Promise.all([
           prisma.tenant.findUnique({
             where: { id: token.tenantId as string },
@@ -87,11 +98,18 @@ export const authOptions: NextAuthOptions = {
             select: { permissions: true, role: true, isActive: true },
           }),
         ])
-        if (tenant && tenant.isActive && !tenant.isSuspended) {
+
+        token.lastCheckedAt = Date.now()
+
+        if (!tenant || !tenant.isActive || tenant.isSuspended) {
+          token.error = 'TenantSuspended'
+        } else if (!freshUser || !freshUser.isActive) {
+          token.error = 'AccountDisabled'
+        } else {
+          delete token.error
           token.tenantName = tenant.name
           token.currency = tenant.currency
-        }
-        if (freshUser && freshUser.isActive) {
+          token.role = freshUser.role
           token.permissions =
             freshUser.permissions.length > 0
               ? freshUser.permissions
@@ -110,6 +128,9 @@ export const authOptions: NextAuthOptions = {
         session.user.tenantSlug = token.tenantSlug as string
         session.user.currency = token.currency as string
         session.user.permissions = (token.permissions as string[]) ?? []
+      }
+      if (token?.error) {
+        session.error = token.error
       }
       return session
     },

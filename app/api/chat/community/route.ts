@@ -38,6 +38,8 @@ export async function POST(req: Request): Promise<NextResponse> {
         tenantId: isAdmin ? null : session.tenantId,
         senderName: isAdmin ? 'Admin' : session.tenantName,
         isAdmin,
+        createdById: session.userId,
+        updatedById: session.userId,
       },
     })
 

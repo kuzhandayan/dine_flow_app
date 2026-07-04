@@ -27,7 +27,7 @@ export async function PATCH(
 
     const inventoryItem = await prisma.inventoryItem.update({
       where: { id, tenantId: session.tenantId },
-      data: parsed.data,
+      data: { ...parsed.data, updatedById: session.userId },
     })
 
     return NextResponse.json({ inventoryItem })
@@ -46,7 +46,7 @@ export async function DELETE(
 
     await prisma.inventoryItem.updateMany({
       where: { id, tenantId: session.tenantId },
-      data: { isActive: false },
+      data: { isActive: false, updatedById: session.userId },
     })
 
     return NextResponse.json({ success: true })
