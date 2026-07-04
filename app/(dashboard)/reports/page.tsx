@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import jsPDF from 'jspdf'
+import { useToast } from '@/components/providers/ToastProvider'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -160,6 +161,7 @@ function StatCard({
 
 export default function ReportsPage(): React.JSX.Element {
   const { format: fmt, currency } = useCurrency()
+  const toast = useToast()
   const [selectedMonth, setSelectedMonth] = useState(MONTH_OPTIONS[1].value) // current month
   const [data, setData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -192,6 +194,10 @@ export default function ReportsPage(): React.JSX.Element {
   // ── CSV Export ───────────────────────────────────────────────────────────────
   function downloadCSV(): void {
     if (!data) return
+    if (data.summary.totalOrders === 0) {
+      toast.warning('Nothing to export', 'No orders found for this period')
+      return
+    }
     const rows: string[][] = []
     rows.push(['DineFlow Report', selectedMonth === 'all' ? 'All Time' : selectedMonth])
     rows.push([])
@@ -226,6 +232,10 @@ export default function ReportsPage(): React.JSX.Element {
   // ── PDF Export ───────────────────────────────────────────────────────────────
   function downloadPDF(): void {
     if (!data) return
+    if (data.summary.totalOrders === 0) {
+      toast.warning('Nothing to export', 'No orders found for this period')
+      return
+    }
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const s = data.summary
     const margin = 15
@@ -349,8 +359,9 @@ export default function ReportsPage(): React.JSX.Element {
 
           <button
             onClick={downloadCSV}
-            disabled={!data}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium border border-[rgb(var(--df-border))] text-[rgb(var(--df-text-2))] hover:border-[rgb(var(--df-accent))]/40 disabled:opacity-40 transition-colors"
+            disabled={!data || data.summary.totalOrders === 0}
+            title={data && data.summary.totalOrders === 0 ? 'No orders in this period' : undefined}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium border border-[rgb(var(--df-border))] text-[rgb(var(--df-text-2))] hover:border-[rgb(var(--df-accent))]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-green-400" />
             CSV
@@ -358,8 +369,9 @@ export default function ReportsPage(): React.JSX.Element {
 
           <button
             onClick={downloadPDF}
-            disabled={!data}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium border border-[rgb(var(--df-border))] text-[rgb(var(--df-text-2))] hover:border-[rgb(var(--df-accent))]/40 disabled:opacity-40 transition-colors"
+            disabled={!data || data.summary.totalOrders === 0}
+            title={data && data.summary.totalOrders === 0 ? 'No orders in this period' : undefined}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium border border-[rgb(var(--df-border))] text-[rgb(var(--df-text-2))] hover:border-[rgb(var(--df-accent))]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <FileText className="w-3.5 h-3.5 text-red-400" />
             PDF
