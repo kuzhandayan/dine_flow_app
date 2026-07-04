@@ -35,7 +35,7 @@ export function MobileNav(): React.JSX.Element {
                 : 'text-[rgb(var(--df-text-3))] hover:text-[rgb(var(--df-text-2))]'
             )}
           >
-            <Icon className={cn('w-5 h-5', isActive(href) && 'drop-shadow-[0_0_6px_rgba(249,115,22,0.6)]')} />
+            <Icon className={cn('w-5 h-5', isActive(href) && 'drop-shadow-[0_0_6px_rgba(99,102,241,0.6)]')} />
             <span className="text-[9px] font-medium leading-none tracking-wide">{label}</span>
           </Link>
         ))}

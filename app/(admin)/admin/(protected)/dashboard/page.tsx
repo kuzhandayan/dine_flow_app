@@ -7,9 +7,14 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = { title: 'Admin Dashboard' }
 
 export default async function AdminDashboardPage(): Promise<React.JSX.Element> {
+  // Exclude admin tenants (tenants that contain a SUPER_ADMIN user) — same rule as /api/admin/tenants
+  const adminTenantIds = await prisma.user
+    .findMany({ where: { role: 'SUPER_ADMIN' }, select: { tenantId: true } })
+    .then((rows) => rows.map((r) => r.tenantId))
+
   const [tenantCount, userCount, announcementCount, directMsgCount] = await Promise.all([
-    prisma.tenant.count({ where: { isActive: true } }),
-    prisma.user.count({ where: { isActive: true } }),
+    prisma.tenant.count({ where: { isActive: true, id: { notIn: adminTenantIds } } }),
+    prisma.user.count({ where: { isActive: true, tenantId: { notIn: adminTenantIds } } }),
     prisma.announcement.count({ where: { isActive: true } }),
     prisma.directMessage.count({ where: { fromAdmin: false, isRead: false } }),
   ])

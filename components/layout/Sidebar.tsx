@@ -172,7 +172,7 @@ export function Sidebar({ tenantName, userRole, isOpen = false, onClose }: Sideb
                     className={cn(
                       'flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-[13px] transition-colors',
                       isActive(item.href)
-                        ? 'bg-[rgba(249,115,22,0.15)] text-[rgb(var(--df-accent))] font-medium'
+                        ? 'bg-[rgb(var(--df-accent))]/15 text-[rgb(var(--df-accent))] font-medium'
                         : 'text-[rgb(var(--df-text-2))] hover:bg-[rgb(var(--df-surface-2))] hover:text-[rgb(var(--df-text))]'
                     )}
                   >

@@ -55,7 +55,7 @@ export function generateBillPdf(data: BillData): void {
   const contentW = W - margin * 2
   let y = 20
 
-  const accent = [249, 115, 22] as [number, number, number]
+  const accent = [99, 102, 241] as [number, number, number]
   const gray1 = [60, 60, 60] as [number, number, number]
   const gray2 = [120, 120, 120] as [number, number, number]
   const gray3 = [200, 200, 200] as [number, number, number]

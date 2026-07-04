@@ -244,7 +244,7 @@ export default function ReportsPage(): React.JSX.Element {
     }
 
     // Header
-    doc.setFillColor(249, 115, 22)
+    doc.setFillColor(99, 102, 241)
     doc.rect(0, 0, 210, 22, 'F')
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
