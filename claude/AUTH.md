@@ -149,7 +149,9 @@ Public `POST`. Validates with `registerSchema`, rejects if the email already exi
 
 This is a real two-layer RBAC: a coarse role, plus a per-user `permissions: String[]` override stored directly on `User` — not just a static role→pages map.
 
-## Not implemented
+## Email — not a current feature at all (deliberately deferred)
 
-- No staff-invite-by-email flow, despite the `Invite` model existing in the schema (`app/api/invite/**` doesn't exist). Staff onboarding is `POST /api/team` with an owner/manager typing a password directly.
-- No password-reset flow verified/wired end-to-end in this doc pass — check `app/(auth)/forgot-password` and any matching API route directly before relying on this.
+`lib/email.ts` (`sendInviteEmail`, `sendPasswordResetEmail`, built on Resend) exists but is **never imported or called anywhere in the app**. Confirmed dead code, not a hidden dependency. `RESEND_API_KEY`/`RESEND_FROM_EMAIL` being unset in any environment is a non-issue today because of this — don't treat it as a build blocker or a gap to urgently fix.
+
+- **No staff-invite-by-email flow.** `Invite` model exists in the schema, but `app/api/invite/**` doesn't exist. Staff onboarding is `POST /api/team` with an owner/manager typing a password directly.
+- **`/forgot-password` is broken, not just unimplemented.** The page (`app/(auth)/forgot-password/page.tsx`) submits to `POST /api/auth/forgot-password`, which doesn't exist (404). The client code doesn't check the response status — it unconditionally shows "Check your email" after any submit, so a user is told a reset email was sent when nothing happened. If/when email is built as a real feature, either wire up that route for real or remove the page until it's ready — don't leave it silently lying to users in the meantime.

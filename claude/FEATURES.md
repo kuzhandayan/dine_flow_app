@@ -47,7 +47,9 @@ Every new tenant (self-registered or admin-created) starts with: 2 categories (M
 
 ## Explicitly NOT implemented (don't assume these exist)
 
+- **No email sending feature at all, by design (future case).** `lib/email.ts` (Resend) is dead code — never imported anywhere. Don't treat missing `RESEND_API_KEY`/`RESEND_FROM_EMAIL` as a bug.
 - **No staff-invite-by-email flow.** The `Invite` Prisma model exists but no route (`app/api/invite/**`) backs it. Staff are created directly with a typed password via `POST /api/team`.
+- **`/forgot-password` is broken, not just unimplemented.** It posts to `POST /api/auth/forgot-password`, which doesn't exist. The page ignores the response and always shows a fake "check your email" success message. See `claude/AUTH.md`.
 - **No subscription auto-expiry.** No cron job, no scheduled function, nothing in `vercel.json` (which doesn't exist). `Subscription.status` would need manual updates.
 - **No `SubscriptionPayment`-recording route**, despite the model existing.
 - **No `RestockLog`-creating route**, despite the model existing and being read by `/api/reports` — there's no "restock" action wired into inventory update.

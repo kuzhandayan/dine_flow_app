@@ -104,11 +104,13 @@ Copy `.env.example` to `.env.local` and fill in all values:
 | `DATABASE_URL` | Supabase → Settings → Database → Transaction pooler URL (port 6543) — used by the app at runtime via `@prisma/adapter-pg` |
 | `DIRECT_URL` | Supabase → Settings → Database → direct connection (port 5432) — used only by `prisma.config.ts` for migrations/seed/studio |
 | `NEXTAUTH_SECRET` | Run: `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | Your app URL e.g. `http://localhost:3000` |
-| `RESEND_API_KEY` | resend.com → API Keys |
-| `RESEND_FROM_EMAIL` | Verified sender email on Resend |
-| `NEXT_PUBLIC_APP_URL` | Same as `NEXTAUTH_URL` |
+| `NEXTAUTH_URL` | Your app URL e.g. `http://localhost:3000` — **must be a real URL, never an empty string** (see warning below) |
+| `RESEND_API_KEY` | resend.com → API Keys — **not currently used by any code path**; email sending is a future feature (see `claude/AUTH.md`). Safe to leave unset for now. |
+| `RESEND_FROM_EMAIL` | Verified sender email on Resend — same as above, currently unused |
+| `NEXT_PUBLIC_APP_URL` | Same as `NEXTAUTH_URL` — **must be a real URL, never an empty string** |
 | `NEXT_PUBLIC_APP_NAME` | `DineFlow` |
+
+> ⚠️ **Known production footgun:** if `NEXTAUTH_URL` or `NEXT_PUBLIC_APP_URL` is set in the Vercel dashboard as an explicit empty string (key present, value blank) rather than left unset, the production build crashes on every static page with `TypeError: Invalid URL` during prerendering. This is different from the variable being *missing* — Next.js's `||` fallbacks handle "unset" fine but not "set to `\"\"`". Always give these a real value.
 
 ---
 
