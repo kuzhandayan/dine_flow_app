@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { Eye, EyeOff, Loader2, UtensilsCrossed, ShieldCheck } from 'lucide-react'
 import { loginSchema, type LoginInput } from '@/lib/validations/auth'
 import { useToast } from '@/components/providers/ToastProvider'
+import { version as APP_VERSION } from '@/package.json'
 
 const LOGOUT_REASON_MESSAGES: Record<string, { title: string; message: string }> = {
   SessionExpired: {
@@ -195,6 +196,9 @@ export default function LoginClient(): React.JSX.Element {
 
         <p className="text-center text-[11px] text-[rgb(var(--df-text-3))] mt-5">
           Owner · Manager · Waiter · Cashier — all sign in here
+        </p>
+        <p className="text-center text-[10px] text-[rgb(var(--df-text-3))]/60 mt-2 tracking-wide">
+          v{APP_VERSION}
         </p>
       </div>
     </div>

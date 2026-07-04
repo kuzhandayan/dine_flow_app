@@ -5,8 +5,9 @@ import {
   UtensilsCrossed, Receipt, BarChart3, Package, Users, TableProperties,
   MessageSquare, ShieldCheck, Zap, ChevronRight, Crown, BriefcaseBusiness,
   ConciergeBell, Landmark, CheckCircle2, TrendingUp, Clock, IndianRupee,
-  FileText, Bell, Search, Settings, Star, ArrowRight, ChefHat,
+  FileText, Bell, Search, Settings, Star, ArrowRight, ChefHat, Sparkles,
 } from 'lucide-react'
+import { version as APP_VERSION } from '@/package.json'
 
 export const metadata: Metadata = {
   title: 'DineFlow — Restaurant POS & Management Software for Indian Restaurants',
@@ -392,9 +393,13 @@ export default function HomePage(): React.JSX.Element {
           <p className="text-[12px] text-[rgb(var(--df-text-3))] text-center">
             Built with ♥ by <span className="text-[rgb(var(--df-text-2))] font-medium">Kuzhandayan K V</span>
           </p>
-          <div className="flex gap-5 text-[12px] text-[rgb(var(--df-text-3))]">
+          <div className="flex items-center gap-5 text-[12px] text-[rgb(var(--df-text-3))]">
             <a href="mailto:sabbari.kv013@gmail.com" className="hover:text-[rgb(var(--df-accent))] transition-colors">Contact</a>
             <Link href="/admin/login" className="hover:text-[rgb(var(--df-accent))] transition-colors">Admin</Link>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgb(var(--df-accent))]/10 border border-[rgb(var(--df-accent))]/20 text-[rgb(var(--df-accent))] font-medium text-[11px]">
+              <Sparkles className="w-3 h-3" />
+              v{APP_VERSION}
+            </span>
           </div>
         </div>
       </footer>
