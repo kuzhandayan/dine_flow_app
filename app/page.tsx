@@ -491,7 +491,7 @@ const ROLES: { icon: LucideIcon; role: string; tagline: string; perms: string[] 
     icon: Crown,
     role: 'Owner',
     tagline: 'Full control of everything',
-    perms: ['All orders & billing', 'GST & tax settings', 'Team management', 'Full reports & revenue', 'Restaurant settings'],
+    perms: ['All orders & billing', 'Full menu management', 'GST & tax settings', 'Team management', 'Full reports & revenue', 'Restaurant settings'],
   },
   {
     icon: BriefcaseBusiness,
