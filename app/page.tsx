@@ -51,11 +51,11 @@ export default function HomePage(): React.JSX.Element {
       {/* ── NAV ── */}
       <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-5xl">
         <nav className="bg-[rgb(var(--df-card))]/80 backdrop-blur-xl border border-[rgb(var(--df-border))] rounded-2xl px-5 py-3 flex items-center justify-between shadow-2xl shadow-black/30">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[rgb(var(--df-accent))] flex items-center justify-center">
-              <UtensilsCrossed className="w-4 h-4 text-white" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[rgb(var(--df-text))] to-[rgb(var(--df-text-2))] ring-1 ring-black/10 shadow-md shadow-black/20 flex items-center justify-center">
+              <UtensilsCrossed className="w-4 h-4 text-[rgb(var(--df-bg))]" strokeWidth={2.5} />
             </div>
-            <span className="font-extrabold text-[rgb(var(--df-accent))] tracking-tight text-lg">DineFlow</span>
+            <span className="font-extrabold text-[rgb(var(--df-text))] tracking-tight text-lg">DineFlow</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-[13px] text-[rgb(var(--df-text-2))]">
             <a href="#features" className="hover:text-[rgb(var(--df-text))] transition-colors">Features</a>
@@ -63,7 +63,7 @@ export default function HomePage(): React.JSX.Element {
             <a href="#about" className="hover:text-[rgb(var(--df-text))] transition-colors">About</a>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/admin/login" className="px-4 py-2 text-[13px] font-medium bg-[rgb(var(--df-accent))] hover:bg-[rgb(var(--df-accent-hover))] text-white rounded-xl transition-all shadow-lg shadow-[rgb(99,102,241)]/25">
+            <Link href="/admin/login" className="px-4 py-2 text-[13px] font-medium bg-[rgb(var(--df-text))] hover:opacity-85 text-[rgb(var(--df-bg))] rounded-xl transition-all">
               Admin Login
             </Link>
           </div>
@@ -72,20 +72,18 @@ export default function HomePage(): React.JSX.Element {
 
       {/* ── HERO ── */}
       <section className="relative pt-40 pb-24 px-6 text-center overflow-hidden">
-        {/* Background glow orbs */}
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[rgb(var(--df-accent))]/8 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-40 left-1/4 w-72 h-72 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-40 right-1/4 w-72 h-72 bg-violet-600/5 rounded-full blur-3xl pointer-events-none" />
+        {/* Background texture */}
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[rgb(var(--df-text-3))]/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgb(var(--df-accent))]/10 border border-[rgb(var(--df-accent))]/25 rounded-full text-[12px] text-[rgb(var(--df-accent))] font-semibold mb-6 tracking-wide uppercase">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-full text-[12px] text-[rgb(var(--df-text-2))] font-semibold mb-6 tracking-wide uppercase">
             <Zap className="w-3 h-3" />
             Cloud POS Built for India
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight mb-6 leading-[1.05]">
             The Smarter POS for<br />
-            <span className="text-[rgb(var(--df-accent))]">Modern Restaurants</span>
+            Modern Restaurants
           </h1>
 
           <p className="text-[rgb(var(--df-text-2))] text-lg sm:text-xl mb-10 leading-relaxed max-w-2xl mx-auto">
@@ -93,7 +91,7 @@ export default function HomePage(): React.JSX.Element {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
-            <Link href="/login" className="inline-flex items-center gap-2 px-7 py-3.5 bg-[rgb(var(--df-accent))] hover:bg-[rgb(var(--df-accent-hover))] text-white rounded-xl font-semibold text-[15px] transition-all shadow-2xl shadow-[rgb(99,102,241)]/30 hover:shadow-[rgb(99,102,241)]/50 hover:-translate-y-0.5">
+            <Link href="/login" className="inline-flex items-center gap-2 px-7 py-3.5 bg-[rgb(var(--df-text))] hover:opacity-85 text-[rgb(var(--df-bg))] rounded-xl font-semibold text-[15px] transition-all shadow-2xl shadow-black/20 hover:-translate-y-0.5">
               Sign In to Your Workspace
               <ArrowRight className="w-4 h-4" />
             </Link>
@@ -106,7 +104,7 @@ export default function HomePage(): React.JSX.Element {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto">
             {STATS.map((s) => (
               <div key={s.label} className="bg-[rgb(var(--df-card))]/60 backdrop-blur-sm border border-[rgb(var(--df-border))] rounded-2xl p-4">
-                <p className="text-2xl font-black text-[rgb(var(--df-accent))]">{s.value}</p>
+                <p className="text-2xl font-black text-[rgb(var(--df-text))]">{s.value}</p>
                 <p className="text-[11px] text-[rgb(var(--df-text-3))] mt-0.5">{s.label}</p>
               </div>
             ))}
@@ -120,18 +118,18 @@ export default function HomePage(): React.JSX.Element {
           <div className="relative bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-3xl overflow-hidden shadow-2xl shadow-black/40">
             {/* Window chrome */}
             <div className="flex items-center gap-2 px-5 py-3.5 border-b border-[rgb(var(--df-border))] bg-[rgb(var(--df-surface-2))]">
-              <div className="w-3 h-3 rounded-full bg-red-500/70" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
-              <div className="w-3 h-3 rounded-full bg-green-500/70" />
+              <div className="w-3 h-3 rounded-full bg-[rgb(var(--df-text-3))]/60" />
+              <div className="w-3 h-3 rounded-full bg-[rgb(var(--df-text-3))]/60" />
+              <div className="w-3 h-3 rounded-full bg-[rgb(var(--df-text-3))]/60" />
               <div className="ml-3 text-[12px] text-[rgb(var(--df-text-3))] font-mono">dineflow.vercel.app/dashboard</div>
             </div>
             {/* Mock dashboard content */}
             <div className="p-5 grid grid-cols-4 gap-4 bg-[rgb(var(--df-bg))]">
               {/* Sidebar mock */}
               <div className="col-span-1 bg-[rgb(var(--df-card))] rounded-2xl p-4 space-y-2 hidden sm:block">
-                <div className="w-24 h-6 bg-[rgb(var(--df-accent))]/20 rounded-lg mb-4" />
+                <div className="w-24 h-6 bg-[rgb(var(--df-surface-2))] rounded-lg mb-4" />
                 {['Dashboard','Orders','New Order','Menu','Inventory','Reports'].map((item) => (
-                  <div key={item} className={`px-3 py-2 rounded-xl text-[11px] font-medium ${item === 'Orders' ? 'bg-[rgb(var(--df-accent))]/15 text-[rgb(var(--df-accent))]' : 'text-[rgb(var(--df-text-3))]'}`}>
+                  <div key={item} className={`px-3 py-2 rounded-xl text-[11px] font-medium ${item === 'Orders' ? 'bg-[rgb(var(--df-surface-2))] text-[rgb(var(--df-text))]' : 'text-[rgb(var(--df-text-3))]'}`}>
                     {item}
                   </div>
                 ))}
@@ -141,13 +139,13 @@ export default function HomePage(): React.JSX.Element {
                 {/* Stat cards row */}
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: "Today's Revenue", val: '₹24,850', color: 'text-green-400' },
-                    { label: 'Active Orders', val: '12', color: 'text-blue-400' },
-                    { label: 'Pending Bills', val: '3', color: 'text-yellow-400' },
+                    { label: "Today's Revenue", val: '₹24,850' },
+                    { label: 'Active Orders', val: '12' },
+                    { label: 'Pending Bills', val: '3' },
                   ].map((card) => (
                     <div key={card.label} className="bg-[rgb(var(--df-card))] rounded-xl p-3 border border-[rgb(var(--df-border))]">
                       <p className="text-[10px] text-[rgb(var(--df-text-3))]">{card.label}</p>
-                      <p className={`text-lg font-bold mt-0.5 ${card.color}`}>{card.val}</p>
+                      <p className="text-lg font-bold mt-0.5 text-[rgb(var(--df-text))]">{card.val}</p>
                     </div>
                   ))}
                 </div>
@@ -155,14 +153,14 @@ export default function HomePage(): React.JSX.Element {
                 <div className="bg-[rgb(var(--df-card))] rounded-xl border border-[rgb(var(--df-border))] overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-[rgb(var(--df-border))] text-[11px] font-semibold text-[rgb(var(--df-text-2))]">Recent Orders</div>
                   {[
-                    { num: 'ORD-00042', table: 'T-4', status: 'In Progress', amt: '₹780', color: 'text-blue-400 bg-blue-400/10' },
-                    { num: 'ORD-00041', table: 'Parcel', status: 'Ready', amt: '₹1,240', color: 'text-purple-400 bg-purple-400/10' },
-                    { num: 'ORD-00040', table: 'T-2', status: 'Served', amt: '₹560', color: 'text-green-400 bg-green-400/10' },
+                    { num: 'ORD-00042', table: 'T-4', status: 'In Progress', amt: '₹780' },
+                    { num: 'ORD-00041', table: 'Parcel', status: 'Ready', amt: '₹1,240' },
+                    { num: 'ORD-00040', table: 'T-2', status: 'Served', amt: '₹560' },
                   ].map((row) => (
                     <div key={row.num} className="flex items-center justify-between px-4 py-2.5 border-b border-[rgb(var(--df-border))]/50 last:border-0">
-                      <span className="text-[11px] font-medium text-[rgb(var(--df-accent))]">{row.num}</span>
+                      <span className="text-[11px] font-medium text-[rgb(var(--df-text))]">{row.num}</span>
                       <span className="text-[11px] text-[rgb(var(--df-text-3))]">{row.table}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${row.color}`}>{row.status}</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgb(var(--df-surface-2))] text-[rgb(var(--df-text-2))]">{row.status}</span>
                       <span className="text-[11px] font-bold">{row.amt}</span>
                     </div>
                   ))}
@@ -178,7 +176,7 @@ export default function HomePage(): React.JSX.Element {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-full text-[12px] text-[rgb(var(--df-text-2))] font-medium mb-4">
-              <Star className="w-3 h-3 text-[rgb(var(--df-accent))]" />
+              <Star className="w-3 h-3 text-[rgb(var(--df-text))]" />
               Everything Included
             </div>
             <h2 className="text-3xl sm:text-4xl font-black mb-4">All features. Zero compromise.</h2>
@@ -189,16 +187,16 @@ export default function HomePage(): React.JSX.Element {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {FEATURES.map((f, i) => (
-              <div key={f.title} className={`group relative bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl p-5 hover:border-[rgb(var(--df-accent))]/50 hover:shadow-xl hover:shadow-[rgb(var(--df-accent))]/5 transition-all hover:-translate-y-1 ${i === 0 ? 'sm:col-span-2' : ''}`}>
-                <div className="w-10 h-10 rounded-xl bg-[rgb(var(--df-accent))]/10 border border-[rgb(var(--df-accent))]/20 flex items-center justify-center mb-4 group-hover:bg-[rgb(var(--df-accent))]/20 transition-colors">
-                  <f.icon className="w-5 h-5 text-[rgb(var(--df-accent))]" />
+              <div key={f.title} className={`group relative bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl p-5 hover:border-[rgb(var(--df-text-3))] hover:shadow-xl hover:shadow-black/5 transition-all hover:-translate-y-1 ${i === 0 ? 'sm:col-span-2' : ''}`}>
+                <div className="w-10 h-10 rounded-xl bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] flex items-center justify-center mb-4 group-hover:bg-[rgb(var(--df-border))] transition-colors">
+                  <f.icon className="w-5 h-5 text-[rgb(var(--df-text))]" />
                 </div>
                 <h3 className="font-bold text-[15px] mb-2">{f.title}</h3>
                 <p className="text-[rgb(var(--df-text-2))] text-[13px] leading-relaxed">{f.description}</p>
                 {f.tags && (
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {f.tags.map((tag) => (
-                      <span key={tag} className="text-[10px] font-medium px-2 py-0.5 bg-[rgb(var(--df-accent))]/10 text-[rgb(var(--df-accent))] rounded-full border border-[rgb(var(--df-accent))]/20">
+                      <span key={tag} className="text-[10px] font-medium px-2 py-0.5 bg-[rgb(var(--df-surface-2))] text-[rgb(var(--df-text-2))] rounded-full border border-[rgb(var(--df-border))]">
                         {tag}
                       </span>
                     ))}
@@ -213,11 +211,10 @@ export default function HomePage(): React.JSX.Element {
       {/* ── GST HIGHLIGHT ── */}
       <section className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="relative bg-gradient-to-br from-[rgb(var(--df-accent))]/10 via-[rgb(var(--df-card))] to-[rgb(var(--df-card))] border border-[rgb(var(--df-accent))]/25 rounded-3xl p-8 sm:p-12 overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[rgb(var(--df-accent))]/8 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-3xl p-8 sm:p-12 overflow-hidden">
             <div className="relative grid sm:grid-cols-2 gap-10 items-center">
               <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgb(var(--df-accent))]/15 border border-[rgb(var(--df-accent))]/30 rounded-full text-[12px] text-[rgb(var(--df-accent))] font-semibold mb-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-full text-[12px] text-[rgb(var(--df-text-2))] font-semibold mb-4">
                   <Receipt className="w-3 h-3" />
                   GST-Compliant Billing
                 </div>
@@ -228,14 +225,14 @@ export default function HomePage(): React.JSX.Element {
                 <div className="space-y-2.5">
                   {GST_POINTS.map((pt) => (
                     <div key={pt} className="flex items-center gap-2.5 text-[13px]">
-                      <CheckCircle2 className="w-4 h-4 text-[rgb(var(--df-accent))] flex-shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-[rgb(var(--df-text))] flex-shrink-0" />
                       <span className="text-[rgb(var(--df-text-2))]">{pt}</span>
                     </div>
                   ))}
                 </div>
               </div>
               {/* GST Bill mock */}
-              <div className="bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl p-5 shadow-2xl">
+              <div className="bg-[rgb(var(--df-surface))] border border-[rgb(var(--df-border))] rounded-2xl p-5 shadow-2xl">
                 <div className="text-center border-b border-[rgb(var(--df-border))] pb-3 mb-3">
                   <p className="font-bold text-[14px]">Spice Garden Restaurant</p>
                   <p className="text-[11px] text-[rgb(var(--df-text-3))]">GSTIN: 33ABCDE1234F1Z5</p>
@@ -262,7 +259,7 @@ export default function HomePage(): React.JSX.Element {
                   <div className="flex justify-between text-[rgb(var(--df-text-3))]"><span>SGST (2.5%)</span><span>₹20.50</span></div>
                   <div className="flex justify-between font-black text-[14px] pt-2 border-t border-[rgb(var(--df-border))]">
                     <span>Grand Total</span>
-                    <span className="text-[rgb(var(--df-accent))]">₹861.00</span>
+                    <span className="text-[rgb(var(--df-text))]">₹861.00</span>
                   </div>
                 </div>
               </div>
@@ -276,7 +273,7 @@ export default function HomePage(): React.JSX.Element {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-full text-[12px] text-[rgb(var(--df-text-2))] font-medium mb-4">
-              <ShieldCheck className="w-3 h-3 text-[rgb(var(--df-accent))]" />
+              <ShieldCheck className="w-3 h-3 text-[rgb(var(--df-text))]" />
               Role-Based Access
             </div>
             <h2 className="text-3xl sm:text-4xl font-black mb-4">The right access for every team member</h2>
@@ -286,16 +283,16 @@ export default function HomePage(): React.JSX.Element {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {ROLES.map((r) => (
-              <div key={r.role} className="bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl p-5 hover:border-[rgb(var(--df-accent))]/40 transition-all">
-                <div className="w-10 h-10 rounded-xl bg-[rgb(var(--df-accent))]/10 border border-[rgb(var(--df-accent))]/20 flex items-center justify-center mb-4">
-                  <r.icon className="w-5 h-5 text-[rgb(var(--df-accent))]" />
+              <div key={r.role} className="bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl p-5 hover:border-[rgb(var(--df-text-3))] transition-all">
+                <div className="w-10 h-10 rounded-xl bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] flex items-center justify-center mb-4">
+                  <r.icon className="w-5 h-5 text-[rgb(var(--df-text))]" />
                 </div>
-                <p className="font-black text-[16px] text-[rgb(var(--df-accent))] mb-1">{r.role}</p>
+                <p className="font-black text-[16px] text-[rgb(var(--df-text))] mb-1">{r.role}</p>
                 <p className="text-[12px] text-[rgb(var(--df-text-3))] mb-4">{r.tagline}</p>
                 <div className="space-y-1.5">
                   {r.perms.map((p) => (
                     <div key={p} className="flex items-center gap-2 text-[12px] text-[rgb(var(--df-text-2))]">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--df-accent))]" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--df-text-3))]" />
                       {p}
                     </div>
                   ))}
@@ -305,9 +302,9 @@ export default function HomePage(): React.JSX.Element {
           </div>
           <p className="text-center text-[13px] text-[rgb(var(--df-text-3))] mt-8">
             All restaurant staff sign in at{' '}
-            <Link href="/login" className="text-[rgb(var(--df-accent))] hover:underline font-medium">/login</Link>.
+            <Link href="/login" className="text-[rgb(var(--df-text))] hover:underline font-medium">/login</Link>.
             {' '}Platform admin at{' '}
-            <Link href="/admin/login" className="text-[rgb(var(--df-accent))] hover:underline font-medium">/admin/login</Link>.
+            <Link href="/admin/login" className="text-[rgb(var(--df-text))] hover:underline font-medium">/admin/login</Link>.
           </p>
         </div>
       </section>
@@ -321,12 +318,12 @@ export default function HomePage(): React.JSX.Element {
           </div>
           <div className="grid sm:grid-cols-3 gap-6">
             {STEPS.map((step, i) => (
-              <div key={i} className="relative">
+              <div key={i} className="relative h-full">
                 {i < STEPS.length - 1 && (
                   <div className="hidden sm:block absolute top-5 left-[calc(50%+2rem)] w-full h-px border-t border-dashed border-[rgb(var(--df-border))] z-0" />
                 )}
-                <div className="relative bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl p-6 text-center hover:border-[rgb(var(--df-accent))]/40 transition-all">
-                  <div className="w-10 h-10 rounded-full bg-[rgb(var(--df-accent))] text-white font-black text-[15px] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[rgb(99,102,241)]/30">
+                <div className="relative h-full flex flex-col bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl p-6 text-center hover:border-[rgb(var(--df-text-3))] transition-all">
+                  <div className="w-10 h-10 rounded-full bg-[rgb(var(--df-text))] text-[rgb(var(--df-bg))] font-black text-[15px] flex items-center justify-center mx-auto mb-4">
                     {i + 1}
                   </div>
                   <h3 className="font-bold text-[15px] mb-2">{step.title}</h3>
@@ -341,18 +338,15 @@ export default function HomePage(): React.JSX.Element {
       {/* ── CTA BANNER ── */}
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto">
-          <div className="relative bg-[rgb(var(--df-accent))] rounded-3xl p-10 sm:p-14 text-center overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/30 to-transparent pointer-events-none" />
-            <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none" />
-            <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-black/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative bg-zinc-900 rounded-3xl p-10 sm:p-14 text-center overflow-hidden">
             <div className="relative">
               <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">Want DineFlow for your restaurant?</h2>
-              <p className="text-indigo-100 text-[15px] mb-3 max-w-lg mx-auto">
+              <p className="text-zinc-300 text-[15px] mb-3 max-w-lg mx-auto">
                 Reach out and we&apos;ll get your restaurant set up. GST billing, orders, and reports — ready from day one.
               </p>
-              <p className="text-white/80 text-[13px] mb-8">Onboarding is handled directly by the DineFlow team.</p>
+              <p className="text-zinc-400 text-[13px] mb-8">Onboarding is handled directly by the DineFlow team.</p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <a href="mailto:sabbari.kv013@gmail.com" className="inline-flex items-center gap-2 px-7 py-3.5 bg-white text-[rgb(var(--df-accent))] hover:bg-indigo-50 rounded-xl font-bold text-[15px] transition-all shadow-xl hover:-translate-y-0.5">
+                <a href="mailto:sabbari.kv013@gmail.com" className="inline-flex items-center gap-2 px-7 py-3.5 bg-white text-zinc-900 hover:bg-zinc-100 rounded-xl font-bold text-[15px] transition-all shadow-xl hover:-translate-y-0.5">
                   sabbari.kv013@gmail.com
                   <ChevronRight className="w-4 h-4" />
                 </a>
@@ -374,7 +368,7 @@ export default function HomePage(): React.JSX.Element {
           </p>
           <p className="mt-3 text-[12px] text-[rgb(var(--df-text-3))]">
             Contact:{' '}
-            <a href="mailto:sabbari.kv013@gmail.com" className="text-[rgb(var(--df-accent))] hover:underline">
+            <a href="mailto:sabbari.kv013@gmail.com" className="text-[rgb(var(--df-text))] hover:underline">
               sabbari.kv013@gmail.com
             </a>
           </p>
@@ -385,18 +379,26 @@ export default function HomePage(): React.JSX.Element {
       <footer className="py-8 px-6 border-t border-[rgb(var(--df-border))]">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-[rgb(var(--df-accent))] flex items-center justify-center">
-              <UtensilsCrossed className="w-3.5 h-3.5 text-white" />
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[rgb(var(--df-text))] to-[rgb(var(--df-text-2))] ring-1 ring-black/10 shadow-sm shadow-black/20 flex items-center justify-center">
+              <UtensilsCrossed className="w-3.5 h-3.5 text-[rgb(var(--df-bg))]" strokeWidth={2.5} />
             </div>
-            <span className="font-extrabold text-[rgb(var(--df-accent))] tracking-tight">DineFlow</span>
+            <span className="font-extrabold text-[rgb(var(--df-text))] tracking-tight">DineFlow</span>
           </div>
           <p className="text-[12px] text-[rgb(var(--df-text-3))] text-center">
-            Built with ♥ by <span className="text-[rgb(var(--df-text-2))] font-medium">Kuzhandayan K V</span>
+            © {new Date().getFullYear()} DineFlow · Developed by{' '}
+            <a
+              href="https://kuzhandayan-portfolio.site/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[rgb(var(--df-text-2))] font-medium hover:text-[rgb(var(--df-text))] hover:underline"
+            >
+              Kuzhandayan K V
+            </a>
           </p>
           <div className="flex items-center gap-5 text-[12px] text-[rgb(var(--df-text-3))]">
-            <a href="mailto:sabbari.kv013@gmail.com" className="hover:text-[rgb(var(--df-accent))] transition-colors">Contact</a>
-            <Link href="/admin/login" className="hover:text-[rgb(var(--df-accent))] transition-colors">Admin</Link>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgb(var(--df-accent))]/10 border border-[rgb(var(--df-accent))]/20 text-[rgb(var(--df-accent))] font-medium text-[11px]">
+            <a href="mailto:sabbari.kv013@gmail.com" className="hover:text-[rgb(var(--df-text))] transition-colors">Contact</a>
+            <Link href="/admin/login" className="hover:text-[rgb(var(--df-text))] transition-colors">Admin</Link>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] text-[rgb(var(--df-text-2))] font-medium text-[11px]">
               <Sparkles className="w-3 h-3" />
               v{APP_VERSION}
             </span>
