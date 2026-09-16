@@ -59,8 +59,8 @@ One codebase serves unlimited restaurants — data is always isolated by `tenant
 
 ### Required Environment Variables (all must be set before app starts)
 ```bash
-DATABASE_URL         # Supabase transaction pooler URL (pgBouncer, port 6543) — runtime queries
-DIRECT_URL           # Supabase direct connection URL (port 5432) — Prisma CLI (migrate/seed/studio) only
+DATABASE_URL         # Neon pooled connection URL (hostname has "-pooler") — runtime queries
+DIRECT_URL           # Neon direct connection URL (same hostname minus "-pooler") — Prisma CLI (db push/seed/studio) only
 NEXTAUTH_URL         # App URL e.g. http://localhost:3000
 NEXTAUTH_SECRET      # openssl rand -base64 32
 RESEND_API_KEY       # From resend.com dashboard
@@ -83,8 +83,8 @@ docker run -p 3000:3000 --env-file .env.local dineflow
 - **Never** bake secrets into Docker image layers (no `ENV SECRET=value` in Dockerfile)
 - **Never** commit `.env.local` — it's in `.gitignore`
 - **Always** use `--env-file .env.local` or `-e KEY=value` at `docker run` time
-- Prisma `DATABASE_URL` uses pgBouncer (transaction pooler) for app queries, via `@prisma/adapter-pg` in `lib/prisma.ts`
-- Prisma `DIRECT_URL` uses direct connection — configured in `prisma.config.ts`, used only by CLI tooling
+- Prisma `DATABASE_URL` uses Neon's pooled endpoint (PgBouncer-based, transaction mode) for app queries, via `@prisma/adapter-pg` in `lib/prisma.ts`
+- Prisma `DIRECT_URL` uses Neon's direct (non-pooled) connection — configured in `prisma.config.ts`, used only by CLI tooling
 - API keys (Resend) rotate in provider dashboard then update env — zero code changes
 
 ### Token Validation in Every API Route

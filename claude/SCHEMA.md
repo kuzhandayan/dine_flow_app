@@ -687,5 +687,6 @@ model DirectMessage {
 ## Connection setup
 
 - `datasource db { provider = "postgresql" }` — note there's **no `url`/`directUrl` in the datasource block itself**. Prisma 7 resolves connection strings from `prisma.config.ts` instead (see `STACK.md`).
-- Runtime queries go through `@prisma/adapter-pg` (`lib/prisma.ts`) using `DATABASE_URL` (Supabase pgBouncer transaction pooler, port 6543).
-- `prisma migrate` / `prisma db seed` / `prisma studio` use `DIRECT_URL` (Supabase direct connection, port 5432), configured in `prisma.config.ts`.
+- Runtime queries go through `@prisma/adapter-pg` (`lib/prisma.ts`) using `DATABASE_URL` (Neon pooled endpoint, port 5432).
+- `prisma migrate` / `prisma db seed` / `prisma studio` use `DIRECT_URL` (Neon direct connection, port 5432), configured in `prisma.config.ts`.
+- Database is Neon Postgres (migrated from Supabase 2026-09) — no `prisma/migrations/*` folder exists, schema is applied via `prisma db push`. See `STACK.md`'s runbook for the exact commands to point at a new instance.

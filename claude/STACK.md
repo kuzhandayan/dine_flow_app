@@ -33,8 +33,8 @@
 ## Prisma 7 connection model (breaking change from v6 assumptions)
 
 - `schema.prisma`'s `datasource db` block has **no `url` or `directUrl`** — just `provider = "postgresql"`.
-- **Runtime** connection: `lib/prisma.ts` builds a `pg.Pool` from `DATABASE_URL` and wraps it in `@prisma/adapter-pg`'s `PrismaPg` adapter, passed to `new PrismaClient({ adapter })`. This is what the running Next.js app actually queries through — pgBouncer transaction pooler, port 6543.
-- **CLI/tooling** connection: `prisma.config.ts` at the repo root defines `datasource: { url: process.env.DIRECT_URL }` and the seed command. `prisma migrate`, `prisma db seed`, `prisma studio` all go through this — Supabase direct connection, port 5432.
+- **Runtime** connection: `lib/prisma.ts` builds a `pg.Pool` from `DATABASE_URL` and wraps it in `@prisma/adapter-pg`'s `PrismaPg` adapter, passed to `new PrismaClient({ adapter })`. This is what the running Next.js app actually queries through — Neon's pooled endpoint (hostname contains `-pooler`), port 5432.
+- **CLI/tooling** connection: `prisma.config.ts` at the repo root defines `datasource: { url: process.env.DIRECT_URL }` and the seed command. `prisma migrate`, `prisma db seed`, `prisma studio` all go through this — Neon direct (non-pooled) connection, same hostname minus `-pooler`, port 5432.
 - `prisma/seed.ts` independently constructs its own `pg.Pool`/`PrismaPg`/`PrismaClient` from `DATABASE_URL` (not `DIRECT_URL`) since it's really an app-level script, not a migration.
 
 ## Styling
@@ -53,18 +53,35 @@
 const nextConfig: NextConfig = {
   output: 'standalone',   // required for the Docker multi-stage build
   images: {
-    remotePatterns: [{ protocol: 'https', hostname: '**.supabase.co' }],  // tenant logos via Supabase storage
+    remotePatterns: [{ protocol: 'https', hostname: '**.supabase.co' }],  // tenant logos — leftover from the old Supabase Storage bucket, unrelated to the Postgres DB migration below; no code imports the Supabase SDK, so this is dead/aspirational
   },
 }
 ```
 
 ## Database
 
-PostgreSQL via Supabase. Two connection strings, both required (`.env.local`):
-- `DATABASE_URL` — pgBouncer transaction pooler, port **6543**, used by the running app.
-- `DIRECT_URL` — direct connection, port **5432**, used only by Prisma CLI tooling.
+PostgreSQL via **Neon** (migrated from Supabase Postgres — 2026-09). Two connection strings, both required (`.env.local`):
+- `DATABASE_URL` — Neon pooled endpoint (hostname has `-pooler` in it), port **5432**, used by the running app via `@prisma/adapter-pg`.
+- `DIRECT_URL` — Neon direct (non-pooled) endpoint, same hostname with `-pooler` removed, port **5432**, used only by Prisma CLI tooling (`prisma.config.ts`).
 
-There is no AWS/self-hosted-Postgres phase in the code today — the "Phase 2: migrate to Neon/VPS" idea from earlier planning docs hasn't been started; Supabase is the only datastore currently wired up.
+Both are on the free Neon tier, single `production` branch, no read replicas. `?sslmode=require&channel_binding=require` is required on both URLs.
+
+There is no AWS/self-hosted-Postgres phase in the code today — the "Phase 2: migrate to Neon/VPS" idea from earlier planning docs is now **done** as far as the Neon move goes; the AWS/VPS part (`DEVOPS.md`) still hasn't started.
+
+### Runbook — pointing the app at a different Postgres instance (e.g. new Neon project, or provider switch)
+
+There are no `prisma/migrations/*` files in this repo — the schema is applied with `prisma db push`, not `prisma migrate deploy`. Steps, in order:
+
+1. Create the new Postgres instance (Neon project, or equivalent) in its console — not scriptable from this repo.
+2. Grab both connection strings: the **pooled** one → `DATABASE_URL`, the **direct** one → `DIRECT_URL`.
+3. Update `.env.local` with both (and the same two keys in Vercel → Project Settings → Environment Variables, for Production + Preview — do that by hand, not from a script).
+4. `npx prisma generate` — regenerate the client (safe against schema drift, doesn't touch the DB).
+5. `npx prisma db push` — creates all tables/enums from `schema.prisma` on the new instance. Add `--accept-data-loss` only if the target DB isn't empty and you're OK with Prisma dropping/altering columns to match the schema.
+6. `npm run db:seed` — seeds the one `SUPER_ADMIN` account (`prisma/seed.ts`). No demo tenant is seeded.
+7. `npm run dev` and hit `/api/health` to confirm the app boots against the new DB.
+8. Update Vercel env vars (step 3) and redeploy, then repeat step 7 against the deployed URL.
+
+If real migration history is ever wanted going forward instead of `db push`, the first one is `npx prisma migrate dev --name init` — not done as part of this move, since it wasn't in place before either.
 
 ## Dead dependencies (safe to remove, not currently used by anything)
 

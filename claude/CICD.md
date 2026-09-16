@@ -28,7 +28,7 @@ jobs:
 - **Production branch is `live`**, not `main`. Pushing to `live` triggers a deploy.
 - **Vercel CLI-driven prebuilt deploy**, not Vercel's GitHub-integration auto-deploy: `vercel pull` fetches env/project config, `vercel build --prod` builds inside the Action runner, `vercel deploy --prebuilt --prod` ships that exact build artifact. Build failures surface as a failed `vercel build` step — there's no separate CI gate before that.
 - Required GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. App secrets (`DATABASE_URL`, `NEXTAUTH_SECRET`, etc.) are **not** duplicated as GitHub secrets — they live in Vercel's own environment variable store and get pulled in via `vercel pull`.
-- **No staging environment or workflow exists.** No `ci.yml` runs type-check/lint on pull requests. No `prisma migrate deploy` step runs anywhere in CI — migrations against the production Supabase DB are presumably run manually (`npx prisma migrate deploy`) or via Vercel's build hooks, not verified as automated.
+- **No staging environment or workflow exists.** No `ci.yml` runs type-check/lint on pull requests. There are no `prisma/migrations/*` files in this repo — schema changes are applied with `npx prisma db push` manually against the production Neon DB (migrated from Supabase 2026-09), not run from CI. See `STACK.md`'s runbook if pointing at a new DB instance.
 
 ## Docker
 

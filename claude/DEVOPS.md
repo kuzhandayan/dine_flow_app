@@ -4,19 +4,19 @@
 > Do NOT act on this during Phase 1 or Phase 2.
 > Come back to this when you have 50+ restaurants and want full control + cost savings.
 >
-> **Status check:** nothing in this file has been started. The app currently deploys to Vercel via GitHub Actions (see `CICD.md`) and runs entirely on Supabase Postgres (see `STACK.md`). No EC2/RDS/S3/Nginx/PM2 exists anywhere in this repo today — everything below is still purely a future plan.
+> **Status check:** nothing in this file has been started. The app currently deploys to Vercel via GitHub Actions (see `CICD.md`) and runs entirely on Neon Postgres (migrated from Supabase 2026-09, see `STACK.md`). No EC2/RDS/S3/Nginx/PM2 exists anywhere in this repo today — everything below is still purely a future plan.
 
 ---
 
 ## Why Move to AWS at Scale?
 
 ```
-Supabase Pro: $25/month flat
+Neon (paid tier): $25/month flat
 AWS EC2 t3.small + RDS: ~$15-20/month
 AWS EC2 t3.medium (self-hosted Postgres): ~$12/month
 
 At 100 restaurants:
-  Supabase Pro:        $25/month (same price)
+  Neon (paid tier):        $25/month (same price)
   AWS self-hosted:     $20/month (you manage it)
 
 Real benefit = CONTROL, not just cost
@@ -33,13 +33,13 @@ Real benefit = CONTROL, not just cost
 ```
 Step 1: Spin up AWS EC2 instance
 Step 2: Install PostgreSQL on EC2
-Step 3: Export data from Supabase
+Step 3: Export data from Neon
 Step 4: Import data into EC2 Postgres
 Step 5: Update DATABASE_URL in .env
-Step 6: Run prisma migrate deploy
+Step 6: Run npx prisma db push
 Step 7: Test everything
 Step 8: Point domain to new server
-Step 9: Shut down Supabase
+Step 9: Shut down Neon project
 ```
 
 **Zero code changes.** Prisma abstracts the database entirely.
@@ -292,28 +292,28 @@ CloudFront CDN:           $3/month
 Total:                   ~$63/month = ~₹5,300/month
 ```
 
-Compare: Supabase at this scale would be custom enterprise pricing.
+Compare: Neon at this scale would be custom enterprise pricing.
 
 ---
 
-## Migration Checklist (Supabase → AWS)
+## Migration Checklist (Neon → AWS)
 
 ```
 Before migration:
 □ AWS account set up and billing alerts configured
 □ EC2 or RDS instance running and tested
 □ Postgres installed and accessible
-□ Backup of Supabase data taken
+□ Backup of Neon data taken
 □ New DATABASE_URL tested in staging environment
 
 Migration steps:
-□ Export from Supabase: pg_dump
+□ Export from Neon: pg_dump
 □ Import to AWS: pg_restore
 □ Update .env on Vercel/server
-□ Run: prisma migrate deploy
+□ Run: npx prisma db push (no migration files exist in this repo — see STACK.md runbook)
 □ Test all features in production
 □ Monitor for 24 hours
-□ Cancel Supabase subscription
+□ Cancel Neon subscription
 
 Post migration:
 □ Set up automated daily backups to S3
