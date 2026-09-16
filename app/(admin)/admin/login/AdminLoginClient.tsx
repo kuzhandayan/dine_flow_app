@@ -4,11 +4,12 @@ import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, ShieldCheck, UtensilsCrossed } from 'lucide-react'
+import { Eye, EyeOff, Loader2, ShieldCheck, UtensilsCrossed } from 'lucide-react'
 
 export default function AdminLoginClient(): React.JSX.Element {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -84,15 +85,24 @@ export default function AdminLoginClient(): React.JSX.Element {
               <label className="block text-[12px] font-medium text-[rgb(var(--df-text-2))] mb-1.5">
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className="w-full px-3 py-2.5 text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-xl focus:outline-none focus:border-purple-500 transition-colors text-[rgb(var(--df-text))] placeholder:text-[rgb(var(--df-text-3))]"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2.5 pr-10 text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-xl focus:outline-none focus:border-purple-500 transition-colors text-[rgb(var(--df-text))] placeholder:text-[rgb(var(--df-text-3))]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgb(var(--df-text-3))] hover:text-[rgb(var(--df-text-2))]"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             {error && (
