@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 import { Providers } from '@/components/providers'
 import './globals.css'
 
@@ -79,7 +80,9 @@ export default function RootLayout({
   return (
     <html lang="en-IN" suppressHydrationWarning>
       <head>
-        <script
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `(function(){var t=localStorage.getItem('dineflow-theme');if(t==='light')document.documentElement.classList.add('light');})()`,
           }}

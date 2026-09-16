@@ -7,6 +7,7 @@ import {
   Phone, Mail, MapPin, Hash, UtensilsCrossed,
   Calendar, Package, PauseCircle, PlayCircle, Loader2, Plus,
 } from 'lucide-react'
+import { Select } from '@/components/ui/Select'
 
 interface Subscription {
   type: string
@@ -25,6 +26,7 @@ interface Tenant {
   currency: string
   isActive: boolean
   isSuspended: boolean
+  isOnline: boolean
   createdAt: string
   staffCount: number
   totalOrders: number
@@ -92,6 +94,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         currency: 'INR',
         isActive: true,
         isSuspended: false,
+        isOnline: true,
         createdAt: new Date().toISOString(),
         staffCount: 1,
         totalOrders: 0,
@@ -255,6 +258,19 @@ function TenantModal({
                 }`}>
                   {tenant.isSuspended ? 'Suspended' : tenant.isActive ? 'Active' : 'Inactive'}
                 </span>
+                {tenant.isActive && !tenant.isSuspended && (
+                  <span
+                    title="Set by the restaurant's owner from their dashboard"
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                      tenant.isOnline
+                        ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20'
+                        : 'bg-gray-400/10 text-gray-400 border-gray-400/20'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${tenant.isOnline ? 'bg-emerald-400' : 'bg-gray-400'}`} />
+                    {tenant.isOnline ? 'In Operation' : 'Offline'}
+                  </span>
+                )}
               </div>
               <p className="text-[12px] text-[rgb(var(--df-text-3))] mt-0.5">/{tenant.slug}</p>
             </div>
@@ -344,23 +360,23 @@ function TenantModal({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-medium text-[rgb(var(--df-text-2))] mb-1">Plan Type</label>
-                  <select
+                  <Select
+                    size="sm"
                     value={subType}
                     onChange={(e) => setSubType(e.target.value)}
-                    className="w-full px-3 py-2 text-[13px] bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-lg focus:outline-none focus:border-[rgb(var(--df-accent))]/60 text-[rgb(var(--df-text))]"
-                  >
-                    {SUB_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                    className="bg-[rgb(var(--df-card))]"
+                    options={SUB_TYPES.map((t) => ({ value: t, label: t }))}
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-[rgb(var(--df-text-2))] mb-1">Status</label>
-                  <select
+                  <Select
+                    size="sm"
                     value={subStatus}
                     onChange={(e) => setSubStatus(e.target.value)}
-                    className="w-full px-3 py-2 text-[13px] bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-lg focus:outline-none focus:border-[rgb(var(--df-accent))]/60 text-[rgb(var(--df-text))]"
-                  >
-                    {SUB_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                    className="bg-[rgb(var(--df-card))]"
+                    options={SUB_STATUSES.map((s) => ({ value: s, label: s }))}
+                  />
                 </div>
               </div>
               <div>
@@ -595,7 +611,16 @@ export default function RestaurantsPage(): React.JSX.Element {
                 {t.isSuspended ? (
                   <span className="flex items-center gap-1 text-[11px] text-amber-400"><PauseCircle className="w-3.5 h-3.5" />Suspended</span>
                 ) : t.isActive ? (
-                  <span className="flex items-center gap-1 text-[11px] text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" />Active</span>
+                  <span className="flex flex-col items-center gap-0.5">
+                    <span className="flex items-center gap-1 text-[11px] text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" />Active</span>
+                    <span
+                      title="Owner-set restaurant operational status"
+                      className={`flex items-center gap-1 text-[10px] ${t.isOnline ? 'text-emerald-400/80' : 'text-gray-400'}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${t.isOnline ? 'bg-emerald-400' : 'bg-gray-400'}`} />
+                      {t.isOnline ? 'In Operation' : 'Offline'}
+                    </span>
+                  </span>
                 ) : (
                   <span className="flex items-center gap-1 text-[11px] text-gray-400"><Clock className="w-3.5 h-3.5" />Inactive</span>
                 )}

@@ -50,6 +50,10 @@ model Tenant {
   suspendedAt     DateTime?
   suspendedReason String?
 
+  // Owner-controlled open/closed status — shown in the topbar to OWNER only,
+  // surfaced read-only in the admin panel. Defaults true at tenant creation.
+  isOnline Boolean @default(true)
+
   @@map("tenants")
 }
 
@@ -342,6 +346,7 @@ model Order {
   tableNumber String?
   status      OrderStatus @default(PENDING)
   notes       String?
+  statusLog   Json?
   isActive    Boolean     @default(true)
 
   subtotal   Float

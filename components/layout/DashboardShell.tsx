@@ -64,6 +64,7 @@ export function DashboardShell({
         <Topbar
           userName={userName}
           tenantName={tenantName}
+          userRole={userRole}
           onMenuToggle={() => setSidebarOpen((prev) => !prev)}
         />
         <main className="flex-1 p-4 md:p-5 overflow-y-auto pb-20 md:pb-5">

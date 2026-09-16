@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { Building2, Phone, Mail, MapPin, Globe, Clock, Save, AlertCircle } from 'lucide-react'
+import { Building2, Phone, Mail, MapPin, Globe, Clock, Save, AlertCircle, Power } from 'lucide-react'
+import { useToast } from '@/components/providers/ToastProvider'
+import { Select } from '@/components/ui/Select'
 import { cn } from '@/lib/utils'
 import { getAllCurrencies } from '@/lib/currency'
 
@@ -32,6 +34,8 @@ const TIMEZONES = [
 export default function SettingsPage(): React.JSX.Element {
   const { data: session } = useSession()
   const isOwner = session?.user?.role === 'OWNER' || session?.user?.role === 'SUPER_ADMIN'
+  const canToggleStatus = session?.user?.role === 'OWNER'
+  const toast = useToast()
 
   const [form, setForm] = useState({
     name: '',
@@ -46,6 +50,9 @@ export default function SettingsPage(): React.JSX.Element {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [slug, setSlug] = useState('')
+
+  const [isOnline, setIsOnline] = useState<boolean | null>(null)
+  const [statusSaving, setStatusSaving] = useState(false)
 
   useEffect(() => {
     async function load(): Promise<void> {
@@ -71,6 +78,43 @@ export default function SettingsPage(): React.JSX.Element {
     }
     void load()
   }, [])
+
+  useEffect(() => {
+    if (!canToggleStatus) return
+    let cancelled = false
+    void fetch('/api/settings/status')
+      .then((res) => (res.ok ? (res.json() as Promise<{ isOnline: boolean }>) : null))
+      .then((data) => {
+        if (!cancelled && data) setIsOnline(data.isOnline)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [canToggleStatus])
+
+  async function handleStatusToggle(): Promise<void> {
+    if (isOnline === null) return
+    const next = !isOnline
+    setStatusSaving(true)
+    setIsOnline(next)
+    try {
+      const res = await fetch('/api/settings/status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isOnline: next }),
+      })
+      if (!res.ok) throw new Error('Failed to update status')
+      toast.success(
+        next ? 'Restaurant is now In Operation' : 'Restaurant is now Offline',
+        next ? 'Shown as operational across the admin panel.' : 'Shown as offline across the admin panel until switched back on.'
+      )
+    } catch {
+      setIsOnline(!next)
+      toast.error('Could not update status', 'Please try again.')
+    } finally {
+      setStatusSaving(false)
+    }
+  }
 
   function handleChange(field: keyof typeof form, value: string): void {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -264,44 +308,24 @@ export default function SettingsPage(): React.JSX.Element {
                     <label className="block text-[12px] font-medium text-[rgb(var(--df-text-2))] mb-1.5">
                       <span className="flex items-center gap-1.5"><Globe className="w-3 h-3" /> Currency</span>
                     </label>
-                    <select
+                    <Select
                       value={form.currency}
                       onChange={(e) => handleChange('currency', e.target.value)}
                       disabled={!isOwner}
-                      className={cn(
-                        'w-full px-3 py-2.5 rounded-xl text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))]',
-                        'text-[rgb(var(--df-text))]',
-                        'focus:outline-none focus:ring-2 focus:ring-[rgb(var(--df-accent))]/40 focus:border-[rgb(var(--df-accent))]',
-                        'transition-colors',
-                        !isOwner && 'opacity-60 cursor-not-allowed'
-                      )}
-                    >
-                      {ALL_CURRENCIES.map((c) => (
-                        <option key={c.code} value={c.code}>{c.label}</option>
-                      ))}
-                    </select>
+                      options={ALL_CURRENCIES.map((c) => ({ value: c.code, label: c.label }))}
+                    />
                   </div>
 
                   <div>
                     <label className="block text-[12px] font-medium text-[rgb(var(--df-text-2))] mb-1.5">
                       <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" /> Timezone</span>
                     </label>
-                    <select
+                    <Select
                       value={form.timezone}
                       onChange={(e) => handleChange('timezone', e.target.value)}
                       disabled={!isOwner}
-                      className={cn(
-                        'w-full px-3 py-2.5 rounded-xl text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))]',
-                        'text-[rgb(var(--df-text))]',
-                        'focus:outline-none focus:ring-2 focus:ring-[rgb(var(--df-accent))]/40 focus:border-[rgb(var(--df-accent))]',
-                        'transition-colors',
-                        !isOwner && 'opacity-60 cursor-not-allowed'
-                      )}
-                    >
-                      {TIMEZONES.map((t) => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
-                      ))}
-                    </select>
+                      options={TIMEZONES}
+                    />
                   </div>
                 </div>
               </div>
@@ -341,6 +365,50 @@ export default function SettingsPage(): React.JSX.Element {
                   </p>
                 )}
               </div>
+
+              {/* Restaurant Status — Owner only, isolated from the topbar to avoid accidental taps */}
+              {canToggleStatus && isOnline !== null && (
+                <div className="bg-[rgb(var(--df-surface))] border border-[rgb(var(--df-border))] rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-[rgb(var(--df-border))]">
+                    <div className="flex items-center gap-2">
+                      <Power className="w-4 h-4 text-[rgb(var(--df-accent))]" />
+                      <h2 className="text-[13px] font-semibold text-[rgb(var(--df-text))]">Restaurant Status</h2>
+                    </div>
+                    <p className="text-[11px] text-[rgb(var(--df-text-3))] mt-0.5">
+                      Marks the whole restaurant as in operation or offline — shown in the admin panel
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleStatusToggle()}
+                    disabled={statusSaving}
+                    className="w-full flex items-center justify-between gap-4 p-5 text-left disabled:opacity-60 hover:bg-[rgb(var(--df-surface-2))] transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className={cn('w-2 h-2 rounded-full shrink-0', isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-[rgb(var(--df-text-3))]')} />
+                      <span className={cn('text-[13px] font-medium', isOnline ? 'text-emerald-400' : 'text-[rgb(var(--df-text-2))]')}>
+                        {isOnline ? 'In Operation' : 'Offline'}
+                      </span>
+                    </div>
+
+                    {/* Switch */}
+                    <span
+                      className={cn(
+                        'relative w-12 h-6 rounded-full transition-colors duration-300 shrink-0',
+                        isOnline ? 'bg-emerald-500' : 'bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))]'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300',
+                          isOnline ? 'translate-x-6' : 'translate-x-0'
+                        )}
+                      />
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>

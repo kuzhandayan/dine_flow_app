@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/middleware-helpers'
 import { prisma } from '@/lib/prisma'
+import { appendStatusLog } from '@/lib/orderStatusLog'
 import { z } from 'zod'
 
 const orderItemSchema = z.object({
@@ -23,26 +24,39 @@ export async function GET(req: Request): Promise<NextResponse> {
     const url = new URL(req.url)
     const status = url.searchParams.get('status')
     const search = url.searchParams.get('search')?.trim()
-    const page = parseInt(url.searchParams.get('page') ?? '1')
-    const limit = parseInt(url.searchParams.get('limit') ?? '20')
+    const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1') || 1)
+    const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') ?? '20') || 20))
 
-    const orders = await prisma.order.findMany({
-      where: {
-        tenantId: session.tenantId,
-        isActive: true,
-        ...(status ? { status: status as never } : {}),
-        ...(search ? { orderNumber: { contains: search, mode: 'insensitive' as const } } : {}),
-      },
-      include: {
-        customer: { select: { name: true, phone: true } },
-        items: { select: { name: true, quantity: true, total: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: (page - 1) * limit,
-    })
+    const where = {
+      tenantId: session.tenantId,
+      isActive: true,
+      ...(status ? { status: status as never } : {}),
+      ...(search
+        ? {
+            OR: [
+              { orderNumber: { contains: search, mode: 'insensitive' as const } },
+              { customer: { name: { contains: search, mode: 'insensitive' as const } } },
+              { customer: { phone: { contains: search } } },
+            ],
+          }
+        : {}),
+    }
 
-    return NextResponse.json({ orders })
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          customer: { select: { name: true, phone: true } },
+          items: { select: { name: true, quantity: true, total: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: (page - 1) * limit,
+      }),
+      prisma.order.count({ where }),
+    ])
+
+    return NextResponse.json({ orders, total, page, limit })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Error' }, { status: 401 })
   }
@@ -126,6 +140,7 @@ export async function POST(req: Request): Promise<NextResponse> {
         totalCGST,
         totalSGST,
         grandTotal,
+        statusLog: appendStatusLog(null, { status: 'PENDING', at: new Date().toISOString() }),
         items: { create: orderItems },
       },
       include: {

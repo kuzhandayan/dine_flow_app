@@ -23,29 +23,21 @@ export function ThemeToggle({ className }: ThemeToggleProps): React.JSX.Element 
         className
       )}
     >
-      {/* Track icons */}
-      <Moon
-        className={cn(
-          'absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 transition-opacity duration-200',
-          isDark ? 'opacity-100 text-[rgb(var(--df-accent))]' : 'opacity-0'
-        )}
-      />
-      <Sun
-        className={cn(
-          'absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 transition-opacity duration-200',
-          isDark ? 'opacity-0' : 'opacity-100 text-white'
-        )}
-      />
-
-      {/* Thumb — w-5 h-5, gap of 2px each side */}
+      {/* Thumb — carries the active icon so it never overlaps a track icon */}
       <span
         className={cn(
-          'absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-sm transition-transform duration-300',
+          'absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-sm transition-transform duration-300 flex items-center justify-center',
           isDark
-            ? 'translate-x-0 bg-[rgb(var(--df-text-3))]'
+            ? 'translate-x-0 bg-[rgb(var(--df-surface))]'
             : 'translate-x-6 bg-white'
         )}
-      />
+      >
+        {isDark ? (
+          <Moon className="w-3 h-3 text-[rgb(var(--df-accent))]" fill="currentColor" />
+        ) : (
+          <Sun className="w-3 h-3 text-[rgb(var(--df-accent))]" fill="currentColor" />
+        )}
+      </span>
     </button>
   )
 }

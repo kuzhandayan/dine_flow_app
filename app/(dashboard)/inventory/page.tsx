@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { Plus, Loader2, AlertTriangle, X, Pencil, Trash2, Package } from 'lucide-react'
 import { useConfirm } from '@/components/shared/ConfirmDialog'
 import { useToast } from '@/components/providers/ToastProvider'
+import { Select } from '@/components/ui/Select'
 
 interface InventoryItem {
   id: string
@@ -141,10 +142,12 @@ export default function InventoryPage(): React.JSX.Element {
             </div>
             <div>
               <label className="block text-[11px] font-medium text-[rgb(var(--df-text-2))] mb-1">Unit *</label>
-              <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                className="w-full px-3 py-2 text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-lg focus:outline-none focus:border-[rgb(var(--df-accent))] text-[rgb(var(--df-text))]">
-                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
+              <Select
+                size="sm"
+                value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                options={UNITS.map((u) => ({ value: u, label: u }))}
+              />
             </div>
             <div>
               <label className="block text-[11px] font-medium text-[rgb(var(--df-text-2))] mb-1">Current Qty</label>

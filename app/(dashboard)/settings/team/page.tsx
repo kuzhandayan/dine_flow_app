@@ -9,6 +9,7 @@ import {
 import { ASSIGNABLE_MODULES, CUSTOMIZABLE_ROLES, DEFAULT_PERMISSIONS } from '@/constants/ROLES'
 import type { UserRole } from '@prisma/client'
 import { cn } from '@/lib/utils'
+import { Select } from '@/components/ui/Select'
 
 type StaffRole = 'WAITER' | 'KITCHEN' | 'CASHIER' | 'MANAGER'
 
@@ -297,16 +298,17 @@ export default function TeamPage(): React.JSX.Element {
                 </div>
                 <div>
                   <label className="text-[11px] font-medium text-[rgb(var(--df-text-2))] uppercase tracking-wider">Role</label>
-                  <select
+                  <Select
                     value={form.role}
                     onChange={(e) => handleRoleChange(e.target.value as StaffRole)}
-                    className="mt-1 w-full bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-xl px-3 py-2 text-[13px] outline-none focus:border-[rgb(var(--df-accent))]/60"
-                  >
-                    <option value="WAITER">Waiter — takes orders, serves</option>
-                    <option value="KITCHEN">Kitchen — chef view, prep</option>
-                    <option value="CASHIER">Cashier — billing & check order</option>
-                    <option value="MANAGER">Manager — full access except owner settings</option>
-                  </select>
+                    wrapperClassName="mt-1"
+                    options={[
+                      { value: 'WAITER', label: 'Waiter — takes orders, serves' },
+                      { value: 'KITCHEN', label: 'Kitchen — chef view, prep' },
+                      { value: 'CASHIER', label: 'Cashier — billing & check order' },
+                      { value: 'MANAGER', label: 'Manager — full access except owner settings' },
+                    ]}
+                  />
                 </div>
               </div>
 

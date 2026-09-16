@@ -350,6 +350,7 @@ model Order {
   tableNumber String?
   status      OrderStatus @default(PENDING)
   notes       String?
+  statusLog   Json?
   isActive    Boolean     @default(true)
 
   subtotal   Float

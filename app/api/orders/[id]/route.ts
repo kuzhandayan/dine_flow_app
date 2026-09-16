@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/middleware-helpers'
 import { prisma } from '@/lib/prisma'
+import { appendStatusLog } from '@/lib/orderStatusLog'
 import { z } from 'zod'
 
 export async function GET(
@@ -38,6 +39,7 @@ const updateOrderSchema = z.object({
   paymentStatus: z.enum(['UNPAID', 'PARTIAL', 'PAID', 'REFUNDED']).optional(),
   paymentMethod: z.enum(['CASH', 'CARD', 'UPI']).optional(),
   paidAmount: z.number().optional(),
+  reason: z.string().trim().min(1).max(500).optional(),
 })
 
 export async function PATCH(
@@ -53,14 +55,29 @@ export async function PATCH(
       return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 })
     }
 
-    const update = parsed.data
+    const { reason, ...update } = parsed.data
     const now = new Date()
+
+    let statusLogUpdate: ReturnType<typeof appendStatusLog> | undefined
+    if (update.status) {
+      const existing = await prisma.order.findFirst({
+        where: { id, tenantId: session.tenantId },
+        select: { status: true, statusLog: true },
+      })
+      statusLogUpdate = appendStatusLog(existing?.statusLog, {
+        status: update.status,
+        at: now.toISOString(),
+        ...(existing?.status ? { fromStatus: existing.status } : {}),
+        ...(reason ? { reason } : {}),
+      })
+    }
 
     const order = await prisma.order.update({
       where: { id, tenantId: session.tenantId },
       data: {
         ...update,
         updatedById: session.userId,
+        ...(statusLogUpdate ? { statusLog: statusLogUpdate } : {}),
         ...(update.status === 'COMPLETED' ? { completedAt: now } : {}),
         ...(update.paymentStatus === 'PAID' ? { paidAt: now } : {}),
       },

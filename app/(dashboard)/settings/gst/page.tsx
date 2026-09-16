@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Loader2, Save, CheckCircle2 } from 'lucide-react'
+import { Select } from '@/components/ui/Select'
 
 interface GSTConfig {
   gstEnabled: boolean
@@ -119,17 +120,17 @@ export default function GSTConfigPage(): React.JSX.Element {
               <label className="block text-[12px] font-medium text-[rgb(var(--df-text-2))] mb-1.5">
                 Default GST Rate (%)
               </label>
-              <select
+              <Select
                 value={config.defaultGSTRate}
                 onChange={(e) => setConfig({ ...config, defaultGSTRate: Number(e.target.value) })}
-                className="w-full px-3 py-2.5 text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-xl focus:outline-none focus:border-[rgb(var(--df-accent))] text-[rgb(var(--df-text))]"
-              >
-                <option value={0}>0% — Exempt</option>
-                <option value={5}>5% — Standard (2.5% CGST + 2.5% SGST)</option>
-                <option value={12}>12% (6% CGST + 6% SGST)</option>
-                <option value={18}>18% (9% CGST + 9% SGST)</option>
-                <option value={28}>28% (14% CGST + 14% SGST)</option>
-              </select>
+                options={[
+                  { value: 0, label: '0% — Exempt' },
+                  { value: 5, label: '5% — Standard (2.5% CGST + 2.5% SGST)' },
+                  { value: 12, label: '12% (6% CGST + 6% SGST)' },
+                  { value: 18, label: '18% (9% CGST + 9% SGST)' },
+                  { value: 28, label: '28% (14% CGST + 14% SGST)' },
+                ]}
+              />
               <p className="text-[11px] text-[rgb(var(--df-text-3))] mt-1.5">
                 Applied to new menu items. Can be overridden per item in Menu settings.
               </p>

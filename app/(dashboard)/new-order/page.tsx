@@ -544,12 +544,15 @@ export default function NewOrderPage(): React.JSX.Element {
           {/* Floating cart summary */}
           {cart.length > 0 && (
             <div className="sticky bottom-0 bg-[rgb(var(--df-surface))] border-t border-[rgb(var(--df-border))] -mx-4 px-4 pt-3 pb-1">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1">
                 <span className="text-[12px] text-[rgb(var(--df-text-2))]">
                   <ShoppingCart className="w-3.5 h-3.5 inline mr-1" />
                   {cart.reduce((s, c) => s + c.quantity, 0)} items
                 </span>
                 <span className="text-[14px] font-bold">{fmt(grandTotal)}</span>
+              </div>
+              <div className="flex items-center justify-between mb-2 text-[11px] text-[rgb(var(--df-text-3))]">
+                <span>Subtotal {fmt(subtotal)} + GST {fmt(totalGST)}</span>
               </div>
               <button
                 onClick={goNext}

@@ -134,14 +134,14 @@ export function Sidebar({ tenantName, userRole, isOpen = false, onClose }: Sideb
     >
       {/* Logo + close button (mobile) */}
       <div className="px-4 py-[18px] border-b border-[rgb(var(--df-border))] flex items-center justify-between">
-        <div>
+        <Link href="/dashboard" onClick={onClose} className="block rounded-lg -m-1 p-1 hover:opacity-80 transition-opacity">
           <h1 className="text-[17px] font-extrabold text-[rgb(var(--df-accent))] tracking-tight">
             DineFlow
           </h1>
           <p className="text-[11px] text-[rgb(var(--df-text-2))] mt-0.5 truncate max-w-[150px]">
             {tenantName}
           </p>
-        </div>
+        </Link>
         {/* Close button — mobile only */}
         <button
           onClick={onClose}

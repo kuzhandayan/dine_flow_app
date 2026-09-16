@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { useCurrency } from '@/hooks/useCurrency'
 import {
@@ -37,7 +37,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   CANCELLED:   { label: 'Cancelled',   color: 'text-red-400 bg-red-400/10 border-red-400/20' },
 }
 
-const PAGE_SIZE = 9
+const PAGE_SIZE = 6
 
 export default function CheckOrderPage(): React.JSX.Element {
   const { format: fmt } = useCurrency()
@@ -45,20 +45,23 @@ export default function CheckOrderPage(): React.JSX.Element {
   const [lastQuery, setLastQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [allResults, setAllResults] = useState<Order[]>([])
+  const [total, setTotal] = useState(0)
   const [searched, setSearched] = useState(false)
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<Order | null>(null)
 
-  async function lookup(p = 1): Promise<void> {
-    const q = query.trim().replace(/[*%]/g, '')
-    if (!q) return
+  async function lookup(p = 1, overrideQuery?: string): Promise<void> {
+    const q = (overrideQuery ?? query).trim().replace(/[*%]/g, '')
     setLoading(true)
     if (p === 1) { setAllResults([]); setSearched(false) }
     setLastQuery(q)
     try {
-      const res = await fetch(`/api/orders?search=${encodeURIComponent(q)}&page=${p}&limit=${PAGE_SIZE}`)
-      const data = (await res.json()) as { orders: Order[] }
+      const params = new URLSearchParams({ page: String(p), limit: String(PAGE_SIZE) })
+      if (q) params.set('search', q)
+      const res = await fetch(`/api/orders?${params.toString()}`)
+      const data = (await res.json()) as { orders: Order[]; total?: number }
       setAllResults(data.orders ?? [])
+      setTotal(data.total ?? data.orders?.length ?? 0)
       setPage(p)
       setSearched(true)
     } finally {
@@ -66,13 +69,13 @@ export default function CheckOrderPage(): React.JSX.Element {
     }
   }
 
-  const totalPages = Math.ceil(allResults.length / PAGE_SIZE) || 1
-  // Since we fetch PAGE_SIZE per page, use hasMore heuristic
-  const hasMore = allResults.length === PAGE_SIZE
+  useEffect(() => { void lookup(1) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
     <div className="p-6 space-y-5">
-      <PageHeader title="Check Order" subtitle="Look up any order by order number or partial text" />
+      <PageHeader title="Check Order" subtitle="Look up any order by order number, customer name, or phone" />
 
       {/* Search bar */}
       <div className="flex gap-2 max-w-md">
@@ -80,15 +83,19 @@ export default function CheckOrderPage(): React.JSX.Element {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--df-text-3))]" />
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value
+              setQuery(value)
+              if (!value.trim() && lastQuery) void lookup(1, '')
+            }}
             onKeyDown={(e) => e.key === 'Enter' && void lookup(1)}
-            placeholder="e.g. ORD-00001 or partial like 01"
+            placeholder="e.g. ORD-00001, customer name, or phone number"
             className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-xl focus:outline-none focus:border-[rgb(var(--df-accent))] text-[rgb(var(--df-text))] placeholder:text-[rgb(var(--df-text-3))]"
           />
         </div>
         <button
           onClick={() => void lookup(1)}
-          disabled={loading || !query.trim()}
+          disabled={loading}
           className="flex items-center gap-2 px-4 py-2.5 bg-[rgb(var(--df-accent))] hover:bg-[rgb(var(--df-accent-hover))] text-white rounded-xl text-[13px] font-medium transition-all disabled:opacity-50"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
@@ -101,7 +108,9 @@ export default function CheckOrderPage(): React.JSX.Element {
         <div className="text-center py-16 bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl">
           <Search className="w-10 h-10 opacity-20 mx-auto mb-3" />
           <p className="text-[14px] font-medium">No orders found</p>
-          <p className="text-[12px] text-[rgb(var(--df-text-2))] mt-1">No orders matching &quot;{lastQuery}&quot;</p>
+          <p className="text-[12px] text-[rgb(var(--df-text-2))] mt-1">
+            {lastQuery ? `No orders matching "${lastQuery}"` : 'No orders yet'}
+          </p>
         </div>
       )}
 
@@ -110,7 +119,7 @@ export default function CheckOrderPage(): React.JSX.Element {
         <>
           <div className="flex items-center justify-between">
             <p className="text-[12px] text-[rgb(var(--df-text-3))]">
-              {allResults.length} order{allResults.length !== 1 ? 's' : ''} found for &quot;{lastQuery}&quot;
+              {total} order{total !== 1 ? 's' : ''} found{lastQuery ? ` for "${lastQuery}"` : ''}
             </p>
           </div>
 
@@ -151,24 +160,26 @@ export default function CheckOrderPage(): React.JSX.Element {
             })}
           </div>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <button
-              onClick={() => void lookup(page - 1)}
-              disabled={page === 1 || loading}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-medium border border-[rgb(var(--df-border))] text-[rgb(var(--df-text-2))] hover:bg-[rgb(var(--df-surface-2))] disabled:opacity-40 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" /> Prev
-            </button>
-            <span className="text-[13px] text-[rgb(var(--df-text-3))] px-2">Page {page}</span>
-            <button
-              onClick={() => void lookup(page + 1)}
-              disabled={!hasMore || loading}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-medium border border-[rgb(var(--df-border))] text-[rgb(var(--df-text-2))] hover:bg-[rgb(var(--df-surface-2))] disabled:opacity-40 transition-colors"
-            >
-              Next <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+          {/* Pagination — only when results span more than one page */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => void lookup(page - 1)}
+                disabled={page === 1 || loading}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-medium border border-[rgb(var(--df-border))] text-[rgb(var(--df-text-2))] hover:bg-[rgb(var(--df-surface-2))] disabled:opacity-40 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" /> Prev
+              </button>
+              <span className="text-[13px] text-[rgb(var(--df-text-3))] px-2">Page {page} of {totalPages}</span>
+              <button
+                onClick={() => void lookup(page + 1)}
+                disabled={page >= totalPages || loading}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-medium border border-[rgb(var(--df-border))] text-[rgb(var(--df-text-2))] hover:bg-[rgb(var(--df-surface-2))] disabled:opacity-40 transition-colors"
+              >
+                Next <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </>
       )}
 

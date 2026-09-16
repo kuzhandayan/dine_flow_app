@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { Plus, Loader2, X, Pencil, Trash2, UtensilsCrossed, Leaf, Drumstick } from 'lucide-react'
 import { useConfirm } from '@/components/shared/ConfirmDialog'
 import { useToast } from '@/components/providers/ToastProvider'
+import { Select } from '@/components/ui/Select'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface Category { id: string; name: string; sortOrder: number; isActive: boolean }
 interface MenuItem {
@@ -28,6 +30,7 @@ const emptyCat = { name: '' }
 export default function MenuPage(): React.JSX.Element {
   const { confirm } = useConfirm()
   const toast = useToast()
+  const { format: fmt } = useCurrency()
   const [categories, setCategories] = useState<CategoryWithItems[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'items' | 'categories'>('items')
@@ -198,18 +201,21 @@ export default function MenuPage(): React.JSX.Element {
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-[rgb(var(--df-text-2))] mb-1">Category</label>
-                  <select value={itemForm.categoryId} onChange={(e) => setItemForm({ ...itemForm, categoryId: e.target.value })}
-                    className="w-full px-3 py-2 text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-lg focus:outline-none focus:border-[rgb(var(--df-accent))] text-[rgb(var(--df-text))]">
-                    <option value="">Uncategorised</option>
-                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <Select
+                    size="sm"
+                    value={itemForm.categoryId}
+                    onChange={(e) => setItemForm({ ...itemForm, categoryId: e.target.value })}
+                    options={[{ value: '', label: 'Uncategorised' }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-[rgb(var(--df-text-2))] mb-1">GST Rate (%)</label>
-                  <select value={itemForm.gstRate} onChange={(e) => setItemForm({ ...itemForm, gstRate: e.target.value })}
-                    className="w-full px-3 py-2 text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] rounded-lg focus:outline-none focus:border-[rgb(var(--df-accent))] text-[rgb(var(--df-text))]">
-                    {GST_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
-                  </select>
+                  <Select
+                    size="sm"
+                    value={itemForm.gstRate}
+                    onChange={(e) => setItemForm({ ...itemForm, gstRate: e.target.value })}
+                    options={GST_RATES.map((r) => ({ value: r, label: `${r}%` }))}
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-[rgb(var(--df-text-2))] mb-1">Type</label>
@@ -265,7 +271,7 @@ export default function MenuPage(): React.JSX.Element {
                         {item.description && <p className="text-[11px] text-[rgb(var(--df-text-3))] truncate">{item.description}</p>}
                       </div>
                       <span className="text-[12px] text-[rgb(var(--df-text-2))]">GST {item.gstRate}%</span>
-                      <span className="text-[13px] font-semibold text-[rgb(var(--df-text))]">₹{item.price.toFixed(0)}</span>
+                      <span className="text-[13px] font-semibold text-[rgb(var(--df-text))]">{fmt(item.price)}</span>
                       <button onClick={() => void toggleAvailable(item)}
                         className={`text-[11px] px-2 py-0.5 rounded-full border transition-all ${item.isAvailable ? 'border-green-500/30 text-green-400 bg-green-400/10' : 'border-[rgb(var(--df-border))] text-[rgb(var(--df-text-3))]'}`}>
                         {item.isAvailable ? 'Available' : 'Unavailable'}

@@ -48,6 +48,7 @@ export async function GET(): Promise<NextResponse> {
       currency: t.currency,
       isActive: t.isActive,
       isSuspended: t.isSuspended,
+      isOnline: t.isOnline,
       createdAt: t.createdAt,
       staffCount: t._count.users,
       totalOrders: t._count.orders,

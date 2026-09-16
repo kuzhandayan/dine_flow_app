@@ -3,15 +3,18 @@
 import { format } from 'date-fns'
 import { Bell, User, Menu } from 'lucide-react'
 import Link from 'next/link'
+import type { UserRole } from '@prisma/client'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { ROLE_LABELS } from '@/constants/ROLES'
 
 interface TopbarProps {
   userName: string
   tenantName: string
+  userRole: UserRole
   onMenuToggle?: () => void
 }
 
-export function Topbar({ userName, tenantName, onMenuToggle }: TopbarProps): React.JSX.Element {
+export function Topbar({ userName, tenantName, userRole, onMenuToggle }: TopbarProps): React.JSX.Element {
   const today = format(new Date(), 'EEE, dd MMM yyyy')
 
   return (
@@ -57,12 +60,20 @@ export function Topbar({ userName, tenantName, onMenuToggle }: TopbarProps): Rea
         </button>
 
         {/* User */}
-        <div className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[rgb(var(--df-surface-2))] transition-colors cursor-pointer">
+        <div
+          className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[rgb(var(--df-surface-2))] transition-colors cursor-pointer"
+          title={`${userName} · ${ROLE_LABELS[userRole]}`}
+        >
           <div className="w-7 h-7 rounded-full bg-[rgb(var(--df-accent))] flex items-center justify-center shrink-0">
             <User className="w-3.5 h-3.5 text-white" />
           </div>
-          <div className="hidden lg:block">
-            <p className="text-[12px] font-medium leading-tight">{userName}</p>
+          <div className="hidden lg:block max-w-[140px]">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[12px] font-medium leading-tight truncate min-w-0">{userName}</p>
+              <span className="px-1.5 py-[1px] rounded-full text-[9px] font-semibold leading-tight bg-[rgb(var(--df-accent))]/15 text-[rgb(var(--df-accent))] shrink-0">
+                {ROLE_LABELS[userRole]}
+              </span>
+            </div>
             <p className="text-[10px] text-[rgb(var(--df-text-2))] leading-tight truncate max-w-[120px]">
               {tenantName}
             </p>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/middleware-helpers'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 
 export async function GET(req: Request): Promise<NextResponse> {
@@ -87,6 +88,9 @@ export async function POST(req: Request): Promise<NextResponse> {
     })
     return NextResponse.json({ customer }, { status: 201 })
   } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return NextResponse.json({ error: 'A customer with this phone number already exists' }, { status: 409 })
+    }
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Error' }, { status: 400 })
   }
 }

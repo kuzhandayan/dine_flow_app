@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   UtensilsCrossed, Package, Clock, RefreshCw, Loader2,
   ChevronRight, Flame, CheckCircle2, X, ChefHat,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface OrderItem { name: string; quantity: number; notes: string | null }
 
@@ -58,6 +60,29 @@ const NEXT_LABEL: Record<string, string> = {
   READY: 'Mark Served',
 }
 
+const STATUS_ORDER: ('PENDING' | 'IN_PROGRESS' | 'READY')[] = ['PENDING', 'IN_PROGRESS', 'READY']
+
+type BucketStatus = 'PENDING' | 'IN_PROGRESS' | 'READY' | 'SERVED' | 'COMPLETED'
+const BUCKET_STATUSES: BucketStatus[] = ['PENDING', 'IN_PROGRESS', 'READY', 'SERVED', 'COMPLETED']
+const PAGE_SIZE = 10
+
+interface StatusBucket {
+  items: Order[]
+  page: number
+  hasMore: boolean
+  loadingMore: boolean
+}
+
+function emptyBucket(): StatusBucket {
+  return { items: [], page: 1, hasMore: true, loadingMore: false }
+}
+
+async function fetchStatusPage(status: BucketStatus, page: number): Promise<Order[]> {
+  const res = await fetch(`/api/orders?status=${status}&page=${page}&limit=${PAGE_SIZE}`)
+  const data = (await res.json()) as { orders?: Order[] }
+  return data.orders ?? []
+}
+
 function elapsed(createdAt: string): string {
   const diff = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000)
   if (diff < 60) return `${diff}s`
@@ -85,15 +110,43 @@ function ElapsedTimer({ createdAt }: { createdAt: string }): React.JSX.Element {
   )
 }
 
+function LoadMoreSentinel({ onVisible, loading }: { onVisible: () => void; loading: boolean }): React.JSX.Element {
+  const ref = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) onVisible() },
+      { rootMargin: '150px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [onVisible])
+
+  return (
+    <div ref={ref} className="flex justify-center py-2">
+      {loading && <Loader2 className="w-4 h-4 animate-spin text-[rgb(var(--df-text-3))]" />}
+    </div>
+  )
+}
+
 // ── Completed orders modal ────────────────────────────────────────────────────
 
 function CompletedModal({
   orders,
   onClose,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: {
   orders: Order[]
   onClose: () => void
+  hasMore: boolean
+  loadingMore: boolean
+  onLoadMore: () => void
 }): React.JSX.Element {
+  const { format: fmt } = useCurrency()
   const totalItems = orders.reduce((s, o) => s + o.items.reduce((si, i) => si + i.quantity, 0), 0)
   const totalRevenue = orders.reduce((s, o) => s + (o.grandTotal ?? 0), 0)
 
@@ -124,7 +177,7 @@ function CompletedModal({
           {[
             { label: 'Orders Done', value: orders.length.toString() },
             { label: 'Items Served', value: totalItems.toString() },
-            { label: 'Revenue', value: `₹${totalRevenue.toFixed(0)}` },
+            { label: 'Revenue', value: fmt(totalRevenue) },
           ].map((s) => (
             <div key={s.label} className="px-4 py-3 text-center">
               <p className="text-[18px] font-bold text-[rgb(var(--df-text))]">{s.value}</p>
@@ -171,13 +224,88 @@ function CompletedModal({
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[12px] font-semibold text-[rgb(var(--df-text))]">₹{(order.grandTotal ?? 0).toFixed(0)}</p>
+                    <p className="text-[12px] font-semibold text-[rgb(var(--df-text))]">{fmt(order.grandTotal ?? 0)}</p>
                     <p className="text-[10px] text-[rgb(var(--df-text-3))] mt-0.5">{timeOnly(order.updatedAt)}</p>
                   </div>
                 </div>
               </div>
             ))
           )}
+          {hasMore && <LoadMoreSentinel onVisible={onLoadMore} loading={loadingMore} />}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Move-back reason modal ─────────────────────────────────────────────────────
+
+function MoveBackModal({
+  order,
+  targetLabel,
+  submitting,
+  onCancel,
+  onConfirm,
+}: {
+  order: Order
+  targetLabel: string
+  submitting: boolean
+  onCancel: () => void
+  onConfirm: (reason: string) => void
+}): React.JSX.Element {
+  const [reason, setReason] = useState('')
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onCancel}>
+      <div
+        className="bg-[rgb(var(--df-card))] border border-[rgb(var(--df-border))] rounded-2xl w-full max-w-sm shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between px-5 pt-5 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+              <ChevronRight className="w-4 h-4 text-amber-400 rotate-180" />
+            </div>
+            <div>
+              <p className="text-[14px] font-bold text-[rgb(var(--df-text))]">Move {order.orderNumber} back?</p>
+              <p className="text-[12px] text-[rgb(var(--df-text-3))] mt-0.5 leading-relaxed">
+                This sends the order back to <span className="font-semibold">{targetLabel}</span>. Add a reason so it doesn't look like a mistouch.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onCancel}
+            className="p-1 rounded-lg hover:bg-[rgb(var(--df-surface-2))] text-[rgb(var(--df-text-3))] transition-colors shrink-0 ml-2"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-5 pb-2">
+          <textarea
+            autoFocus
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason for moving this order back…"
+            rows={3}
+            className="w-full resize-none rounded-xl border border-[rgb(var(--df-border))] bg-[rgb(var(--df-surface))] px-3 py-2 text-[13px] text-[rgb(var(--df-text))] placeholder:text-[rgb(var(--df-text-3))] focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+          />
+        </div>
+
+        <div className="flex gap-2 px-5 pb-5 pt-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl text-[13px] font-medium border border-[rgb(var(--df-border))] text-[rgb(var(--df-text-2))] hover:bg-[rgb(var(--df-surface-2))] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(reason.trim())}
+            disabled={!reason.trim() || submitting}
+            className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-50"
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Confirm Move'}
+          </button>
         </div>
       </div>
     </div>
@@ -187,51 +315,68 @@ function CompletedModal({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function KitchenPage(): React.JSX.Element {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [completed, setCompleted] = useState<Order[]>([])
+  const [buckets, setBuckets] = useState<Record<BucketStatus, StatusBucket>>({
+    PENDING: emptyBucket(),
+    IN_PROGRESS: emptyBucket(),
+    READY: emptyBucket(),
+    SERVED: emptyBucket(),
+    COMPLETED: emptyBucket(),
+  })
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
-  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
   const [showCompleted, setShowCompleted] = useState(false)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverStatus, setDragOverStatus] = useState<string | null>(null)
+  const [moveBack, setMoveBack] = useState<{ order: Order; targetStatus: 'PENDING' | 'IN_PROGRESS' | 'READY' } | null>(null)
+  const [movingBack, setMovingBack] = useState(false)
 
   const fetchOrders = useCallback(async (): Promise<void> => {
+    setRefreshing(true)
     try {
-      const [pending, inProgress, ready, served, completedRes] = await Promise.all([
-        fetch('/api/orders?status=PENDING').then((r) => r.json() as Promise<{ orders: Order[] }>),
-        fetch('/api/orders?status=IN_PROGRESS').then((r) => r.json() as Promise<{ orders: Order[] }>),
-        fetch('/api/orders?status=READY').then((r) => r.json() as Promise<{ orders: Order[] }>),
-        fetch('/api/orders?status=SERVED').then((r) => r.json() as Promise<{ orders: Order[] }>),
-        fetch('/api/orders?status=COMPLETED').then((r) => r.json() as Promise<{ orders: Order[] }>),
-      ])
-
-      setOrders([
-        ...(pending.orders ?? []),
-        ...(inProgress.orders ?? []),
-        ...(ready.orders ?? []),
-      ])
-
-      // Filter completed/served to today only
-      const todayStart = new Date()
-      todayStart.setHours(0, 0, 0, 0)
-      const todayOrders = [
-        ...(served.orders ?? []),
-        ...(completedRes.orders ?? []),
-      ].filter((o) => new Date(o.updatedAt) >= todayStart)
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-
-      setCompleted(todayOrders)
+      const results = await Promise.all(BUCKET_STATUSES.map((s) => fetchStatusPage(s, 1)))
+      setBuckets((prev) => {
+        const next = { ...prev }
+        BUCKET_STATUSES.forEach((s, i) => {
+          const items = results[i] ?? []
+          next[s] = { items, page: 1, hasMore: items.length === PAGE_SIZE, loadingMore: false }
+        })
+        return next
+      })
       setLastRefreshed(new Date())
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [])
 
   useEffect(() => { void fetchOrders() }, [fetchOrders])
 
-  useEffect(() => {
-    const id = setInterval(() => void fetchOrders(), 30000)
-    return () => clearInterval(id)
-  }, [fetchOrders])
+  async function loadMore(status: BucketStatus): Promise<void> {
+    const bucket = buckets[status]
+    if (bucket.loadingMore || !bucket.hasMore) return
+    setBuckets((prev) => ({ ...prev, [status]: { ...prev[status], loadingMore: true } }))
+    try {
+      const nextPage = bucket.page + 1
+      const items = await fetchStatusPage(status, nextPage)
+      setBuckets((prev) => ({
+        ...prev,
+        [status]: {
+          items: [...prev[status].items, ...items],
+          page: nextPage,
+          hasMore: items.length === PAGE_SIZE,
+          loadingMore: false,
+        },
+      }))
+    } catch {
+      setBuckets((prev) => ({ ...prev, [status]: { ...prev[status], loadingMore: false } }))
+    }
+  }
+
+  async function loadMoreCompleted(): Promise<void> {
+    await Promise.all([loadMore('SERVED'), loadMore('COMPLETED')])
+  }
 
   async function advance(order: Order): Promise<void> {
     const next = NEXT_STATUS[order.status]
@@ -249,10 +394,58 @@ export default function KitchenPage(): React.JSX.Element {
     }
   }
 
+  async function changeStatus(order: Order, targetStatus: string, reason?: string): Promise<void> {
+    setUpdatingId(order.id)
+    try {
+      await fetch(`/api/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: targetStatus, ...(reason ? { reason } : {}) }),
+      })
+      void fetchOrders()
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  function handleDrop(targetStatus: 'PENDING' | 'IN_PROGRESS' | 'READY'): void {
+    setDragOverStatus(null)
+    const order = STATUS_ORDER.flatMap((s) => buckets[s].items).find((o) => o.id === draggingId)
+    setDraggingId(null)
+    if (!order) return
+
+    const sourceIndex = STATUS_ORDER.indexOf(order.status as (typeof STATUS_ORDER)[number])
+    const targetIndex = STATUS_ORDER.indexOf(targetStatus)
+    if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return
+
+    if (targetIndex > sourceIndex) {
+      void changeStatus(order, targetStatus)
+    } else {
+      setMoveBack({ order, targetStatus })
+    }
+  }
+
+  async function confirmMoveBack(reason: string): Promise<void> {
+    if (!moveBack) return
+    setMovingBack(true)
+    try {
+      await changeStatus(moveBack.order, moveBack.targetStatus, reason)
+      setMoveBack(null)
+    } finally {
+      setMovingBack(false)
+    }
+  }
+
   const byStatus = (status: 'PENDING' | 'IN_PROGRESS' | 'READY'): Order[] =>
-    orders
-      .filter((o) => o.status === status)
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    [...buckets[status].items].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const completed = [...buckets.SERVED.items, ...buckets.COMPLETED.items]
+    .filter((o) => new Date(o.updatedAt) >= todayStart)
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  const completedHasMore = buckets.SERVED.hasMore || buckets.COMPLETED.hasMore
+  const completedLoadingMore = buckets.SERVED.loadingMore || buckets.COMPLETED.loadingMore
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -265,17 +458,18 @@ export default function KitchenPage(): React.JSX.Element {
           <div>
             <h1 className="text-[18px] font-bold tracking-tight">Kitchen View</h1>
             <p className="text-[12px] text-[rgb(var(--df-text-3))]">
-              Last updated {lastRefreshed.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              &nbsp;· auto-refreshes every 30s
+              {lastRefreshed
+                ? `Last updated ${lastRefreshed.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                : 'Loading…'}
             </p>
           </div>
         </div>
         <button
           onClick={() => void fetchOrders()}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 border border-[rgb(var(--df-border))] hover:border-[rgb(var(--df-accent))]/40 rounded-xl text-[12px] text-[rgb(var(--df-text-2))] transition-all"
+          disabled={refreshing}
+          className="flex items-center gap-2 px-3 py-2 border border-[rgb(var(--df-border))] hover:border-[rgb(var(--df-accent))]/40 rounded-xl text-[12px] text-[rgb(var(--df-text-2))] transition-all disabled:opacity-60"
         >
-          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
           Refresh
         </button>
       </div>
@@ -289,8 +483,15 @@ export default function KitchenPage(): React.JSX.Element {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 items-start">
           {ACTIVE_COLUMNS.map((col) => {
             const colOrders = byStatus(col.status)
+            const isDragOver = dragOverStatus === col.status
             return (
-              <div key={col.status} className="flex flex-col gap-3">
+              <div
+                key={col.status}
+                className={`flex flex-col gap-3 rounded-2xl transition-colors ${isDragOver ? 'bg-[rgb(var(--df-accent))]/5 ring-2 ring-[rgb(var(--df-accent))]/30' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); setDragOverStatus(col.status) }}
+                onDragLeave={() => setDragOverStatus((s) => (s === col.status ? null : s))}
+                onDrop={(e) => { e.preventDefault(); handleDrop(col.status) }}
+              >
                 <div className="flex items-center justify-between px-1">
                   <span className={`text-[13px] font-bold ${col.accent}`}>{col.label}</span>
                   <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${col.badge}`}>
@@ -305,7 +506,13 @@ export default function KitchenPage(): React.JSX.Element {
                 )}
 
                 {colOrders.map((order) => (
-                  <div key={order.id} className={`bg-[rgb(var(--df-card))] border ${col.cardBorder} rounded-2xl overflow-hidden`}>
+                  <div
+                    key={order.id}
+                    draggable
+                    onDragStart={(e) => { setDraggingId(order.id); e.dataTransfer.effectAllowed = 'move' }}
+                    onDragEnd={() => { setDraggingId(null); setDragOverStatus(null) }}
+                    className={`bg-[rgb(var(--df-card))] border ${col.cardBorder} rounded-2xl overflow-hidden cursor-grab active:cursor-grabbing transition-opacity ${draggingId === order.id ? 'opacity-40' : ''}`}
+                  >
                     <div className="px-4 py-3 border-b border-[rgb(var(--df-border))] flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-[14px] font-bold text-[rgb(var(--df-accent))]">{order.orderNumber}</span>
@@ -361,6 +568,10 @@ export default function KitchenPage(): React.JSX.Element {
                     </div>
                   </div>
                 ))}
+
+                {buckets[col.status].hasMore && (
+                  <LoadMoreSentinel onVisible={() => void loadMore(col.status)} loading={buckets[col.status].loadingMore} />
+                )}
               </div>
             )
           })}
@@ -413,7 +624,23 @@ export default function KitchenPage(): React.JSX.Element {
 
       {/* Modal */}
       {showCompleted && (
-        <CompletedModal orders={completed} onClose={() => setShowCompleted(false)} />
+        <CompletedModal
+          orders={completed}
+          onClose={() => setShowCompleted(false)}
+          hasMore={completedHasMore}
+          loadingMore={completedLoadingMore}
+          onLoadMore={() => void loadMoreCompleted()}
+        />
+      )}
+
+      {moveBack && (
+        <MoveBackModal
+          order={moveBack.order}
+          targetLabel={ACTIVE_COLUMNS.find((c) => c.status === moveBack.targetStatus)?.label ?? moveBack.targetStatus}
+          submitting={movingBack}
+          onCancel={() => setMoveBack(null)}
+          onConfirm={(reason) => void confirmMoveBack(reason)}
+        />
       )}
     </div>
   )

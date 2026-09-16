@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import jsPDF from 'jspdf'
 import { useToast } from '@/components/providers/ToastProvider'
+import { Select } from '@/components/ui/Select'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -340,15 +341,12 @@ export default function ReportsPage(): React.JSX.Element {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Month picker */}
-          <select
+          <Select
+            className="w-auto"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-2 rounded-xl text-[13px] bg-[rgb(var(--df-surface-2))] border border-[rgb(var(--df-border))] text-[rgb(var(--df-text))] focus:outline-none focus:border-[rgb(var(--df-accent))]/60"
-          >
-            {MONTH_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+            options={MONTH_OPTIONS}
+          />
 
           <button
             onClick={() => void load(selectedMonth)}
